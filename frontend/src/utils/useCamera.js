@@ -25,7 +25,12 @@ export function useCamera(isAuthenticated = false) {
   // ESP32-CAM State
   const [espIp, setEspIpState] = useState(() => {
     try {
-      return localStorage.getItem('orthonex_espcam_ip') || '192.168.0.109';
+      const saved = localStorage.getItem('orthonex_espcam_ip');
+      if (!saved || saved === '192.168.1.105' || saved.startsWith('192.168.1.')) {
+        localStorage.setItem('orthonex_espcam_ip', '192.168.0.109');
+        return '192.168.0.109';
+      }
+      return saved;
     } catch {
       return '192.168.0.109';
     }

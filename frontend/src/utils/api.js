@@ -923,64 +923,59 @@ export async function analyzeXrayImage(file) {
 }
 
 export function cleanEspHost(ip) {
-  if (!ip) return '192.168.1.105';
+  if (!ip) return '192.168.0.109';
   return ip.trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
 }
 
-export function getEspCamStreamUrl(ip, forceProxy = false) {
+export function getEspCamStreamUrl(ip) {
   const host = cleanEspHost(ip);
-  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-  if (forceProxy || isHttps) {
-    return `${API_BASE}/api/esp/stream?ip=${encodeURIComponent(host)}`;
-  }
-  return host.includes(':') ? `http://${host}/stream` : `http://${host}:81/stream`;
+  const baseHost = host.split(':')[0];
+  return `http://${baseHost}:81/stream`;
 }
 
-export function getEspCamFrameUrl(ip, forceProxy = false) {
+export function getEspCamFrameUrl(ip) {
   const host = cleanEspHost(ip);
-  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const baseHost = host.split(':')[0];
   const cb = Date.now();
-  if (forceProxy || isHttps) {
-    return `${API_BASE}/api/esp/frame?ip=${encodeURIComponent(host)}&_cb=${cb}`;
-  }
-  const baseUrl = host.includes(':') ? `http://${host.split(':')[0]}` : `http://${host}`;
-  return `${baseUrl}/capture?_cb=${cb}`;
+  return `http://${baseHost}/capture?_cb=${cb}`;
 }
 
 export async function pingDevice(ip) {
   const host = cleanEspHost(ip);
+  const baseHost = host.split(':')[0];
   const t0 = performance.now();
 
-  // Try direct probe first if in HTTP context
-  if (typeof window !== 'undefined' && window.location.protocol !== 'https:') {
+  // 1. Direct browser probe to local ESP32
+  if (typeof window !== 'undefined') {
     try {
-      const directUrl = host.includes(':') ? `http://${host}/status` : `http://${host}/status`;
-      const directRes = await fetch(directUrl, { signal: AbortSignal.timeout(1500), mode: 'cors' });
+      const directRes = await fetch(`http://${baseHost}/status`, { signal: AbortSignal.timeout(1500), mode: 'cors' });
       if (directRes.ok) {
         const latency = Math.round(performance.now() - t0);
-        return { reachable: true, target: host, latency: `${latency}ms`, mode: 'direct' };
+        return { reachable: true, target: baseHost, latency: `${latency}ms`, mode: 'direct' };
       }
     } catch {}
   }
 
-  // Fallback to backend ping
-  try {
-    const res = await fetch(`${API_BASE}/api/hardware/ping?ip=${encodeURIComponent(host)}`, {
-      credentials: 'include',
-      signal: AbortSignal.timeout(3500)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        reachable: Boolean(data.reachable),
-        target: host,
-        latency: data.latency_ms ? `${data.latency_ms}ms` : `${Math.round(performance.now() - t0)}ms`,
-        mode: 'proxy'
-      };
-    }
-  } catch {}
+  // 2. If running on local server, try local backend
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    try {
+      const res = await fetch(`${API_BASE}/api/hardware/ping?ip=${encodeURIComponent(baseHost)}`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(2000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          reachable: Boolean(data.reachable),
+          target: baseHost,
+          latency: data.latency_ms ? `${data.latency_ms}ms` : `${Math.round(performance.now() - t0)}ms`,
+          mode: 'proxy'
+        };
+      }
+    } catch {}
+  }
 
-  return { reachable: false, target: host, latency: 'Unreachable', mode: 'offline' };
+  return { reachable: false, target: baseHost, latency: 'Unreachable', mode: 'offline' };
 }
 
 export async function getEspCamStatus(ip) {
