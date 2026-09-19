@@ -712,11 +712,11 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
           className="absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-300"
         />
 
-        {/* Layer 1.5: ESP32-CAM Direct MJPEG Stream View */}
+        {/* Layer 1.5: ESP32-CAM Stream View (Cloud WebSocket Frame or Direct MJPEG) */}
         {camera.sourceMode === 'espcam' && (
           <img
-            key={camera.espStreamUrl}
-            src={camera.espStreamUrl}
+            key={camera.espFrameBlobUrl || camera.espStreamUrl}
+            src={camera.espFrameBlobUrl || camera.espStreamUrl}
             alt="ESP32-CAM Live Feed"
             style={{
               opacity: camera.hudOpacity / 100,

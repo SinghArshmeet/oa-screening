@@ -5,6 +5,7 @@ import {
   controlEspCam,
   getEspCamStreamUrl,
   getEspCamFrameUrl,
+  getEspCamWebSocketUrl,
   cleanEspHost
 } from './api';
 
@@ -44,6 +45,81 @@ export function useCamera(isAuthenticated = false) {
   const [espVFlip, setEspVFlip] = useState(false);
   const [espHMirror, setEspHMirror] = useState(false);
   const [espStreamUrl, setEspStreamUrl] = useState(() => getEspCamStreamUrl('192.168.0.109'));
+  const [espFrameBlobUrl, setEspFrameBlobUrl] = useState(null);
+  const [isWsRelayActive, setIsWsRelayActive] = useState(false);
+  const wsRef = useRef(null);
+
+  // Connect to Cloud WebSocket Relay (Option B)
+  useEffect(() => {
+    let ws = null;
+    let reconnectTimeout = null;
+    let active = true;
+
+    const connectWs = () => {
+      if (!active) return;
+      try {
+        const wsUrl = getEspCamWebSocketUrl();
+        ws = new WebSocket(wsUrl);
+        ws.binaryType = 'blob';
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (!active) return;
+          setIsWsRelayActive(true);
+        };
+
+        ws.onmessage = (event) => {
+          if (!active) return;
+          if (event.data instanceof Blob) {
+            const newUrl = URL.createObjectURL(event.data);
+            setEspFrameBlobUrl((prev) => {
+              if (prev) {
+                try { URL.revokeObjectURL(prev); } catch {}
+              }
+              return newUrl;
+            });
+            setIsEspConnected(true);
+            setIsEspOnline(true);
+            setEspStatus('connected');
+            setEspLatency('Cloud WSS');
+          } else if (typeof event.data === 'string') {
+            try {
+              const msg = JSON.parse(event.data);
+              if (msg.type === 'camera_status') {
+                if (msg.online !== undefined) {
+                  setIsEspOnline(Boolean(msg.online));
+                  if (!msg.online) setEspStatus('idle');
+                }
+                if (msg.flash !== undefined) setEspFlash(Boolean(msg.flash));
+              }
+            } catch {}
+          }
+        };
+
+        ws.onclose = () => {
+          if (!active) return;
+          setIsWsRelayActive(false);
+          reconnectTimeout = setTimeout(connectWs, 3000);
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+      } catch (err) {
+        reconnectTimeout = setTimeout(connectWs, 4000);
+      }
+    };
+
+    connectWs();
+
+    return () => {
+      active = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws) {
+        try { ws.close(); } catch {}
+      }
+    };
+  }, []);
 
   // Background ping heartbeat to detect ESP32-CAM online/offline state
   const checkEspOnline = useCallback(async (ipToCheck) => {
@@ -372,6 +448,8 @@ export function useCamera(isAuthenticated = false) {
     espVFlip,
     espHMirror,
     espStreamUrl,
+    espFrameBlobUrl,
+    isWsRelayActive,
     connectEspCam,
     disconnectEspCam,
     toggleEspFlash,

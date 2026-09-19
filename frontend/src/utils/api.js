@@ -927,6 +927,12 @@ export function cleanEspHost(ip) {
   return ip.trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
 }
 
+export function getEspCamWebSocketUrl() {
+  const wsProto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const cleanBase = API_BASE.replace(/^https?:\/\//i, '');
+  return `${wsProto}//${cleanBase}/api/esp/ws/viewer`;
+}
+
 export function getEspCamStreamUrl(ip) {
   const host = cleanEspHost(ip);
   const baseHost = host.split(':')[0];

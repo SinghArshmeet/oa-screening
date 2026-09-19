@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import asyncio
 import base64
 import hashlib
 import ipaddress
@@ -15,7 +14,7 @@ import urllib.request
 
 import httpx
 import joblib
-from fastapi import Cookie, Depends, FastAPI, File, Header, HTTPException, Query, Response, UploadFile
+from fastapi import Cookie, Depends, FastAPI, File, Header, HTTPException, Query, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, StreamingResponse
 
@@ -946,3 +945,139 @@ async def esp_stream(ip: str = Query(...)):
             "Access-Control-Allow-Origin": "*"
         }
     )
+
+
+class EspWebSocketHub:
+    """Relays real-time binary JPEG frames and control commands between ESP32-CAM and web clients."""
+
+    def __init__(self):
+        self.camera_ws: WebSocket | None = None
+        self.viewers: set[WebSocket] = set()
+        self.last_frame: bytes | None = None
+        self.fps_count: int = 0
+        self.fps_timer: float = time.time()
+        self.current_fps: float = 0.0
+        self.camera_status: dict = {"flash": 0, "resolution": "QVGA"}
+
+    async def register_camera(self, ws: WebSocket):
+        await ws.accept()
+        self.camera_ws = ws
+        await self.broadcast_viewer_event({"type": "camera_status", "online": True, "fps": self.current_fps})
+
+    def unregister_camera(self, ws: WebSocket):
+        if self.camera_ws == ws:
+            self.camera_ws = None
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self.broadcast_viewer_event({"type": "camera_status", "online": False}))
+            except Exception:
+                pass
+
+    async def register_viewer(self, ws: WebSocket):
+        await ws.accept()
+        self.viewers.add(ws)
+        # Send initial status
+        try:
+            await ws.send_json({
+                "type": "camera_status",
+                "online": self.camera_ws is not None,
+                "fps": self.current_fps,
+                **self.camera_status
+            })
+            if self.last_frame:
+                await ws.send_bytes(self.last_frame)
+        except Exception:
+            pass
+
+    def unregister_viewer(self, ws: WebSocket):
+        self.viewers.discard(ws)
+
+    async def broadcast_frame(self, frame_bytes: bytes):
+        self.last_frame = frame_bytes
+        self.fps_count += 1
+        now = time.time()
+        if now - self.fps_timer >= 1.0:
+            self.current_fps = round(self.fps_count / (now - self.fps_timer), 1)
+            self.fps_count = 0
+            self.fps_timer = now
+
+        dead = []
+        for v in list(self.viewers):
+            try:
+                await v.send_bytes(frame_bytes)
+            except Exception:
+                dead.append(v)
+        for d in dead:
+            self.viewers.discard(d)
+
+    async def broadcast_viewer_event(self, event: dict):
+        dead = []
+        for v in list(self.viewers):
+            try:
+                await v.send_json(event)
+            except Exception:
+                dead.append(v)
+        for d in dead:
+            self.viewers.discard(d)
+
+    async def send_command_to_camera(self, cmd: dict):
+        if self.camera_ws:
+            try:
+                await self.camera_ws.send_json(cmd)
+                return True
+            except Exception:
+                self.camera_ws = None
+        return False
+
+
+esp_hub = EspWebSocketHub()
+
+
+@app.websocket("/api/esp/ws/camera")
+async def esp_camera_ws(websocket: WebSocket):
+    """ESP32-CAM connects here to push live binary JPEG frames."""
+    await esp_hub.register_camera(websocket)
+    try:
+        while True:
+            message = await websocket.receive()
+            if "bytes" in message and message["bytes"]:
+                await esp_hub.broadcast_frame(message["bytes"])
+            elif "text" in message and message["text"]:
+                try:
+                    data = json.loads(message["text"])
+                    if "flash" in data:
+                        esp_hub.camera_status["flash"] = data["flash"]
+                    await esp_hub.broadcast_viewer_event({"type": "camera_telemetry", **data})
+                except Exception:
+                    pass
+    except (WebSocketDisconnect, Exception):
+        esp_hub.unregister_camera(websocket)
+
+
+@app.websocket("/api/esp/ws/viewer")
+async def esp_viewer_ws(websocket: WebSocket):
+    """Frontend web browser connects here to stream video and send hardware commands."""
+    await esp_hub.register_viewer(websocket)
+    try:
+        while True:
+            text = await websocket.receive_text()
+            try:
+                cmd = json.loads(text)
+                await esp_hub.send_command_to_camera(cmd)
+            except Exception:
+                pass
+    except (WebSocketDisconnect, Exception):
+        esp_hub.unregister_viewer(websocket)
+
+
+@app.get("/api/esp/ws/status")
+def esp_ws_status() -> dict[str, object]:
+    """HTTP status of cloud WebSocket relay."""
+    return {
+        "camera_online": esp_hub.camera_ws is not None,
+        "viewers_count": len(esp_hub.viewers),
+        "fps": esp_hub.current_fps,
+        "has_last_frame": esp_hub.last_frame is not None,
+        "status": esp_hub.camera_status
+    }
