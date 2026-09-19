@@ -122,39 +122,41 @@ void initCamera() {
   Serial.println("[ESP-CAM] Camera initialized successfully");
 }
 
+void onMessageCallback(WebsocketsMessage msg) {
+  String data = msg.data();
+  Serial.print("[Cloud Command]: ");
+  Serial.println(data);
+
+  if (data.indexOf("\"flash\"") >= 0 || data.indexOf("flash") >= 0) {
+    if (data.indexOf("\"val\":1") >= 0 || data.indexOf("\"val\": 1") >= 0) {
+      setFlash(true);
+    } else if (data.indexOf("\"val\":0") >= 0 || data.indexOf("\"val\": 0") >= 0) {
+      setFlash(false);
+    }
+  }
+}
+
+void onEventsCallback(WebsocketsEvent event, String data) {
+  if (event == WebsocketsEvent::ConnectionOpened) {
+    Serial.println("\n***************************************************");
+    Serial.println("  >>> CLOUD WEBSOCKET CONNECTED SUCCESSFULLY! <<<  ");
+    Serial.println("***************************************************\n");
+    // Blink Flash LED once as a visual confirmation
+    setFlash(true);
+    delay(200);
+    setFlash(false);
+  } else if (event == WebsocketsEvent::ConnectionClosed) {
+    Serial.println("[ESP-CAM] Cloud WebSocket Connection Closed");
+  }
+}
+
 void connectToCloud() {
   Serial.println("[ESP-CAM] Connecting to Cloud WebSocket Relay...");
   Serial.print("[ESP-CAM] URL: ");
   Serial.println(ws_server_url);
 
-  // Handle incoming commands from the website (like Flash ON/OFF)
-  client.onMessage([](WebsocketsMessage msg) {
-    String data = msg.data();
-    Serial.print("[Cloud Command]: ");
-    Serial.println(data);
-
-    if (data.indexOf("\"flash\"") >= 0 || data.indexOf("flash") >= 0) {
-      if (data.indexOf("\"val\":1") >= 0 || data.indexOf("\"val\": 1") >= 0) {
-        setFlash(true);
-      } else if (data.indexOf("\"val\":0") >= 0 || data.indexOf("\"val\": 0") >= 0) {
-        setFlash(false);
-      }
-    }
-  });
-
-  client.onEvent([](WebsocketsEvent event, String data) {
-    if (event == WebsocketsEvent::ConnectionOpened) {
-      Serial.println("\n***************************************************");
-      Serial.println("  >>> CLOUD WEBSOCKET CONNECTED SUCCESSFULLY! <<<  ");
-      Serial.println("***************************************************\n");
-      // Blink Flash LED once as a visual confirmation
-      setFlash(true);
-      delay(200);
-      setFlash(false);
-    } else if (event == WebsocketsEvent::ConnectionClosed) {
-      Serial.println("[ESP-CAM] Cloud WebSocket Connection Closed");
-    }
-  });
+  client.onMessage(onMessageCallback);
+  client.onEvent(onEventsCallback);
 
   // Connect over SSL (WSS)
   bool connected = client.connect(ws_server_url);
