@@ -246,6 +246,7 @@ For full schematics, timer allocation (`ESP32PWM::allocateTimer(1)`), pinout res
 ---
 
 ## 📁 Additional Hardware Documentation
+- [Joystick-Controlled Physical Tracking Rig Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/JOYSTICK_PAN_TILT_RIG.md)
 - [OLED Display HUD Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/OLED_DISPLAY_INTEGRATION.md)
 - [Servo Motor Pan/Tilt Tracking Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/SERVO_INTEGRATION.md)
 - [Wiring Schematics & Circuit Diagrams](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/WIRING_DIAGRAM.md)
