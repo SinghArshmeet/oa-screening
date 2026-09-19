@@ -144,44 +144,48 @@ After flashing, the module can operate untethered using a 5V powerbank or an AC/
 
 ---
 
-## 5. Servo Motor (Pan / Tilt) Wiring Schematic
+## 5. Servo Motor (Pan / Tilt) & I2C OLED Wiring Schematic
 
-When adding a tracking rig (SG90 or MG90S micro-servos) to the ESP32-CAM:
+When adding a tracking rig (SG90 or MG90S micro-servos) and a 0.96" I2C OLED screen to the standalone ESP32-CAM:
 
 ```
-                          5V 2A POWER SUPPLY / MB SHIELD
+                          5V 2A POWER SUPPLY / REGULATOR
                        ┌──────────────────────────────────┐
-                       │                              5V  ├───┬─────────────┬─────────── [Red: Servo 1 VCC]
+                       │                              5V  ├───┬─────────────┬─────────── [Red: Servo VCC]
                        │                                  │   │             │
-                       │                                  │ ┌─┴─┐         ┌─┴─┐
-                       │                                  │ │ + │ 220µF   │ + │ 100nF   [Red: Servo 2 VCC]
-                       │                                  │ │   │ to      │   │ Ceramic 
-                       │                                  │ │   │ 470µF   │   │
-                       │                                  │ │ - │         │ - │
-                       │                                  │ └─┬─┘         └─┬─┘
-                       │                              GND ├───┴─────────────┴───┬─────── [Black: Servo 1 GND]
+                       │                                  │ ┌─┴─┐           ├─────────── [VCC: OLED Display (3.3V/5V)]
+                       │                                  │ │ + │ 220µF     │
+                       │                                  │ │   │ Buffer    │
+                       │                                  │ │ - │ Capacitor │
+                       │                                  │ └─┬─┘           │
+                       │                              GND ├───┴─────────────┴───┬─────── [Black: Servo GND]
                        └──────────────────────────────────┘                     │
-                                                                                │        [Black: Servo 2 GND]
+                                                                                ├─────── [GND: OLED Display]
                        AI-THINKER ESP32-CAM                                     │
                        ┌──────────────────────────────────┐                     │
+                       │                              5V  │◄────────────────────┤ (5V Power Input)
                        │                              GND ├─────────────────────┘
                        │                          GPIO 13 ├───────────────────────────── [Orange: Pan Servo PWM]
-                       │                          GPIO 14 ├───────────────────────────── [Orange: Tilt Servo PWM]
+                       │                          GPIO 14 ├───────────────────────────── [SCL: OLED I2C Clock]
+                       │                          GPIO 15 ├───────────────────────────── [SDA: OLED I2C Data]
                        │                                  │
                        │ [OV2640 CAMERA LENS]             │
                        └──────────────────────────────────┘
 ```
 
-### Servo Pinout Quick Reference:
-| Servo Wire Color | Signal Name | ESP32-CAM Target Pin | Electrical Notes |
-|:---:|:---:|:---:|:---|
-| 🔴 **Red** | Power (VCC) | **5V Pin** | Must receive 4.8V–6.0V. **NEVER connect to 3.3V pin!** |
-| 🟤 / ⚫ **Brown / Black** | Ground (GND) | **GND Pin** | Common ground between power source, servo, and ESP32. |
-| 🟠 / 🟡 **Orange / Yellow** | PWM Signal (Pan) | **GPIO 13** | Primary pan axis (horizontal 0° to 180°). |
-| 🟠 / 🟡 **Orange / Yellow** | PWM Signal (Tilt) | **GPIO 14** (or **GPIO 15**) | Optional tilt axis (vertical pitch 0° to 60°). |
+### Combined Pinout Quick Reference:
+| Component | Wire / Pin | ESP32-CAM Target Pin | Electrical Notes |
+|:---|:---:|:---:|:---|
+| **Servo Motor** | 🔴 Red (VCC) | **5V Pin** | Must receive 4.8V–6.0V. **NEVER connect to 3.3V pin!** |
+| **Servo Motor** | 🟤 / ⚫ Brown/Black | **GND Pin** | Common ground with battery and ESP32. |
+| **Servo Motor** | 🟠 Orange (PWM) | **GPIO 13** | Primary Pan axis (horizontal 0° to 180°). |
+| **OLED Display** | **VCC** | **5V** or **3V3 Pin** | Compatible with 3.3V and 5V. |
+| **OLED Display** | **GND** | **GND Pin** | Common ground. |
+| **OLED Display** | **SCL** | **GPIO 14** | Software / Hardware I2C Clock line. |
+| **OLED Display** | **SDA** | **GPIO 15** | Software / Hardware I2C Data line. |
 
 > [!WARNING]
 > **Avoid Restricted Pins:**
 > - **DO NOT USE GPIO 16:** Connected to 4MB external PSRAM chip select; touching it crashes camera memory.
-> - **DO NOT USE GPIO 0:** Camera 20MHz XCLK master clock and boot pin.
+> - **DO NOT USE GPIO 0:** Camera 20MHz XCLK master clock and boot pin (must remain floating).
 > - **DO NOT USE GPIO 4:** Connected to high-power white Flash LED.

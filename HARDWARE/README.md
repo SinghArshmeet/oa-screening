@@ -61,11 +61,12 @@ The OrthoNex screening system leverages an **AI-Thinker ESP32-CAM** module to de
 | 3 | **ESP32-CAM-MB Shield** | Dual-deck daughterboard with CH340G chip, RST + IO0 buttons | USB programming, power & auto-reset | **Highly Recommended** |
 | 4 | **Micro-USB Cable** | High-quality 4-wire data & power cable | Flashing and continuous 5V power | **Mandatory** |
 | 5 | **5V / 2A Power Adapter** | Clean DC regulated USB power source (phone charger / powerbank) | Prevents brownouts during Wi-Fi transmission & servo moves | **Mandatory** |
-| 6 | **SG90 / MG90S Micro Servo** | 9g micro-servo motor (Pan on GPIO 13, optional Tilt on GPIO 14) | Automated patient runway tracking | Optional / Recommended |
-| 7 | **100µF–470µF Capacitor** | 10V–16V electrolytic capacitor across 5V & GND | Buffers current spikes to prevent camera brownout | Recommended with Servos |
-| 8 | *FT232RL FTDI Adapter* | 3.3V/5V USB-to-TTL serial converter | Alternative programmer (only if MB shield is unavailable) | Optional fallback |
-| 9 | *DuPont Jumper Wires* | Female-to-Female / Female-to-Male jumper cables | Wiring servos, FTDI, or capacitors | Required with Servos |
-| 10 | *Mini Tripod / Stand* | 0.8m to 1.0m height camera stand | Stable positioning for patient gait capture | Recommended |
+| 6 | **SG90 / MG90S Micro Servo** | 9g micro-servo motor (Pan on GPIO 13) | Automated patient runway tracking | Optional / Recommended |
+| 7 | **0.96" I2C OLED Display** | 128x64 SSD1306 OLED (SDA on GPIO 15, SCL on GPIO 14) | Real-time IP, Wi-Fi, FPS, and status HUD | Optional / Recommended |
+| 8 | **100µF–470µF Capacitor** | 10V–16V electrolytic capacitor across 5V & GND | Buffers current spikes to prevent camera brownout | Recommended with Servos |
+| 9 | *FT232RL FTDI Adapter* | 3.3V/5V USB-to-TTL serial converter | Alternative programmer (only if MB shield is unavailable) | Optional fallback |
+| 10 | *DuPont Jumper Wires* | Female-to-Female / Female-to-Male jumper cables | Wiring servos, OLED, FTDI, or capacitors | Required |
+| 11 | *Mini Tripod / Stand* | 0.8m to 1.0m height camera stand | Stable positioning for patient gait capture | Recommended |
 
 ---
 
@@ -245,6 +246,7 @@ For full schematics, timer allocation (`ESP32PWM::allocateTimer(1)`), pinout res
 ---
 
 ## 📁 Additional Hardware Documentation
+- [OLED Display HUD Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/OLED_DISPLAY_INTEGRATION.md)
 - [Servo Motor Pan/Tilt Tracking Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/SERVO_INTEGRATION.md)
 - [Wiring Schematics & Circuit Diagrams](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/WIRING_DIAGRAM.md)
 - [Complete Pinout & GPIO Multiplexing Reference](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/PINOUT_REFERENCE.md)
