@@ -1,20 +1,24 @@
 /**
- * OrthoNex India — ESP32-CAM Cloud WebSocket Relay
+ * OrthoNex India — ESP32-CAM Cloud WebSocket Relay v3.0
  * 
- * Streams live camera frames directly to the cloud backend on Render:
+ * Configured with User-Calibrated Zero-Lag OV3660 Presets:
+ * - Clock (XCLK): 12 MHz
+ * - Frame Size:   QVGA (320x240)
+ * - JPEG Quality: 10 (High quality, low latency)
+ * - Brightness:   +1
+ * - Contrast:     +1
+ * - Saturation:    0
+ * - Sharpness:     0
+ * - De-Noise:      2
+ * - AWB:          Enabled (Advanced)
+ * - AEC & AGC:    Enabled
+ * - Gamma & Lenc: Enabled
+ * - V-Flip:       ON (True orientation)
+ * - H-Mirror:     OFF
+ * - Flash LED:    ON (Toggleable live from web HUD)
+ * 
+ * Streams live directly to OrthoNex Cloud Backend:
  * wss://oa-ner-screening.onrender.com/api/esp/ws/camera
- * 
- * Target Website: https://orthonex.vercel.app/#gait
- * 
- * REQUIRED LIBRARY:
- * In Arduino IDE: Sketch -> Include Library -> Manage Libraries -> Search "ArduinoWebsockets" by Gil Maimon -> Install
- * 
- * BOARD SETTINGS:
- * Board: "AI Thinker ESP32-CAM"
- * CPU Frequency: "240MHz (WiFi/BT)"
- * Flash Frequency: "80MHz"
- * Partition Scheme: "Huge APP (3MB No OTA/1MB SPIFFS)"
- * PSRAM: "Enabled"
  */
 
 #include <Arduino.h>
@@ -58,10 +62,13 @@ const char *ws_server_url = "wss://oa-ner-screening.onrender.com/api/esp/ws/came
 #define PCLK_GPIO_NUM     22
 #define LED_GPIO_NUM       4 // Onboard High-Power Flash LED
 
+// ==========================================
+// 4. Runtime State & Objects
+// ==========================================
 WebsocketsClient client;
 unsigned long lastFrameTime = 0;
-const int TARGET_FRAME_DELAY_MS = 66; // ~15 FPS smooth streaming
-bool flashState = false;
+const int TARGET_FRAME_DELAY_MS = 33; // Target ~30 FPS zero-lag streaming
+bool flashState = true;               // Default Flash ON as calibrated
 
 void setFlash(bool state) {
   flashState = state;
@@ -69,84 +76,148 @@ void setFlash(bool state) {
   Serial.printf("[ESP-CAM] Flash LED: %s\n", state ? "ON" : "OFF");
 }
 
-void initCamera() {
+void initCameraWithPresets() {
+  // Hard power-cycle the camera sensor to clear any I2C bus lockup
+  pinMode(PWDN_GPIO_NUM, OUTPUT);
+  digitalWrite(PWDN_GPIO_NUM, HIGH); // Power DOWN
+  delay(200);
+  digitalWrite(PWDN_GPIO_NUM, LOW);  // Power UP
+  delay(200);
+
+  // Clear I2C bus lines
+  pinMode(SIOC_GPIO_NUM, OUTPUT);
+  pinMode(SIOD_GPIO_NUM, INPUT_PULLUP);
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(SIOC_GPIO_NUM, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(SIOC_GPIO_NUM, LOW);
+    delayMicroseconds(10);
+  }
+  delay(50);
+
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
+  config.ledc_timer   = LEDC_TIMER_0;
+  config.pin_d0       = Y2_GPIO_NUM;
+  config.pin_d1       = Y3_GPIO_NUM;
+  config.pin_d2       = Y4_GPIO_NUM;
+  config.pin_d3       = Y5_GPIO_NUM;
+  config.pin_d4       = Y6_GPIO_NUM;
+  config.pin_d5       = Y7_GPIO_NUM;
+  config.pin_d6       = Y8_GPIO_NUM;
+  config.pin_d7       = Y9_GPIO_NUM;
+  config.pin_xclk     = XCLK_GPIO_NUM;
+  config.pin_pclk     = PCLK_GPIO_NUM;
+  config.pin_vsync    = VSYNC_GPIO_NUM;
+  config.pin_href     = HREF_GPIO_NUM;
   config.pin_sccb_sda = SIOD_GPIO_NUM;
   config.pin_sccb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  config.pin_pwdn     = PWDN_GPIO_NUM;
+  config.pin_reset    = RESET_GPIO_NUM;
+  config.xclk_freq_hz = 12000000; // Calibrated 12 MHz clock for stable zero-lag
   config.pixel_format = PIXFORMAT_JPEG;
+  config.frame_size   = FRAMESIZE_QVGA; // Calibrated 320x240
+  config.jpeg_quality = 10;             // Calibrated high clarity
+  config.fb_count     = 2;
+  config.grab_mode    = CAMERA_GRAB_LATEST;
 
-  if (psramFound()) {
-    config.frame_size = FRAMESIZE_QVGA; // 320x240 (Fastest & optimal for cloud pose analysis)
-    config.jpeg_quality = 12;           // High clarity, low bandwidth
-    config.fb_count = 2;
-    config.grab_mode = CAMERA_GRAB_LATEST;
-  } else {
-    config.frame_size = FRAMESIZE_QVGA;
-    config.jpeg_quality = 14;
-    config.fb_count = 1;
-    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-  }
-
+  Serial.println("[ESP-CAM] Initializing OV3660 sensor with custom presets...");
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("[ESP-CAM] Camera init failed: 0x%x\n", err);
+    Serial.printf("[ESP-CAM] Init failed at 12MHz (0x%x). Retrying at 10MHz...\n", err);
+    config.xclk_freq_hz = 10000000;
+    err = esp_camera_init(&config);
+  }
+
+  if (err != ESP_OK) {
+    Serial.printf("[ESP-CAM] FATAL: Camera init failed: 0x%x\n", err);
     delay(2000);
     ESP.restart();
   }
 
-  // Sensor orientation check
+  // ==========================================
+  // Apply User-Calibrated Sensor Tuning
+  // ==========================================
   sensor_t *s = esp_camera_sensor_get();
-  if (s && s->id.PID == OV3660_PID) {
-    s->set_vflip(s, 1);
-    s->set_brightness(s, 1);
-    s->set_saturation(s, -1);
-  }
+  if (s != NULL) {
+    s->set_framesize(s, FRAMESIZE_QVGA); // 320x240
+    s->set_quality(s, 10);              // High quality
+    s->set_brightness(s, 1);            // Brightness +1
+    s->set_contrast(s, 1);              // Contrast +1
+    s->set_saturation(s, 0);            // Saturation 0
+    s->set_sharpness(s, 0);             // Sharpness 0
+    s->set_denoise(s, 2);               // De-noise
+    s->set_ae_level(s, 0);              // Exposure level 0
+    s->set_gainceiling(s, (gainceiling_t)0); // Gainceiling 0
+    s->set_special_effect(s, 0);        // No effect
+    s->set_whitebal(s, 1);              // AWB enabled
+    s->set_dcw(s, 1);                   // Advanced AWB enabled
+    s->set_awb_gain(s, 0);              // Manual AWB off
+    s->set_exposure_ctrl(s, 1);         // AEC enabled
+    s->set_gain_ctrl(s, 1);             // AGC enabled
+    s->set_raw_gma(s, 1);               // GMA enabled
+    s->set_lenc(s, 1);                  // Lens correction enabled
+    s->set_hmirror(s, 0);               // H-Mirror OFF
+    s->set_vflip(s, 1);                 // V-Flip ON
 
-  Serial.println("[ESP-CAM] Camera initialized successfully");
+    Serial.println("[ESP-CAM] All custom presets successfully applied to sensor!");
+  }
 }
 
+// ==========================================
+// 5. Cloud WebSocket Callbacks
+// ==========================================
 void onMessageCallback(WebsocketsMessage msg) {
   String data = msg.data();
   Serial.print("[Cloud Command]: ");
   Serial.println(data);
 
-  if (data.indexOf("\"flash\"") >= 0 || data.indexOf("flash") >= 0) {
-    if (data.indexOf("\"val\":1") >= 0 || data.indexOf("\"val\": 1") >= 0) {
+  sensor_t *s = esp_camera_sensor_get();
+
+  // Flash LED toggle
+  if (data.indexOf("flash") >= 0) {
+    if (data.indexOf("\"val\":1") >= 0 || data.indexOf("\"flash\":1") >= 0 || data.indexOf("true") >= 0) {
       setFlash(true);
-    } else if (data.indexOf("\"val\":0") >= 0 || data.indexOf("\"val\": 0") >= 0) {
+    } else if (data.indexOf("\"val\":0") >= 0 || data.indexOf("\"flash\":0") >= 0 || data.indexOf("false") >= 0) {
       setFlash(false);
     }
+  }
+
+  // Live Resolution adjustment
+  if (s != NULL && data.indexOf("framesize") >= 0) {
+    if (data.indexOf("QVGA") >= 0 || data.indexOf("\"val\":5") >= 0) {
+      s->set_framesize(s, FRAMESIZE_QVGA);
+    } else if (data.indexOf("CIF") >= 0 || data.indexOf("\"val\":6") >= 0) {
+      s->set_framesize(s, FRAMESIZE_CIF);
+    } else if (data.indexOf("VGA") >= 0 || data.indexOf("\"val\":8") >= 0) {
+      s->set_framesize(s, FRAMESIZE_VGA);
+    }
+  }
+
+  // Live V-Flip adjustment
+  if (s != NULL && data.indexOf("vflip") >= 0) {
+    s->set_vflip(s, data.indexOf("\"val\":1") >= 0 ? 1 : 0);
+  }
+
+  // Live H-Mirror adjustment
+  if (s != NULL && data.indexOf("hmirror") >= 0) {
+    s->set_hmirror(s, data.indexOf("\"val\":1") >= 0 ? 1 : 0);
   }
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
-    Serial.println("\n***************************************************");
-    Serial.println("  >>> CLOUD WEBSOCKET CONNECTED SUCCESSFULLY! <<<  ");
-    Serial.println("***************************************************\n");
-    // Blink Flash LED once as a visual confirmation
-    setFlash(true);
-    delay(200);
+    Serial.println("\n*************************************************************");
+    Serial.println("  >>> CLOUD WEBSOCKET CONNECTED WITH CUSTOM PRESETS! <<<     ");
+    Serial.println("*************************************************************\n");
+    // Visual confirmation blink
     setFlash(false);
+    delay(100);
+    setFlash(true);
   } else if (event == WebsocketsEvent::ConnectionClosed) {
-    Serial.println("[ESP-CAM] Cloud WebSocket Connection Closed");
+    Serial.println("[ESP-CAM] WebSocket Connection Closed.");
+  } else if (event == WebsocketsEvent::GotPing) {
+    client.pong();
   }
 }
 
@@ -155,70 +226,82 @@ void connectToCloud() {
   Serial.print("[ESP-CAM] URL: ");
   Serial.println(ws_server_url);
 
-  client.setInsecure();
+  client.setInsecure(); // Bypass TLS cert verification
   client.onMessage(onMessageCallback);
   client.onEvent(onEventsCallback);
 
-  // Connect over SSL (WSS)
   bool connected = client.connect(ws_server_url);
   if (connected) {
-    Serial.println("[ESP-CAM] Handshake complete, streaming active!");
+    Serial.println("[ESP-CAM] Handshake complete, zero-lag streaming active!");
   } else {
-    Serial.println("[ESP-CAM] Connection failed. Retrying in 3 seconds (Render may be spinning up)...");
+    Serial.println("[ESP-CAM] Connection failed. Retrying in 3 seconds...");
   }
 }
 
+// ==========================================
+// 6. Setup & Main Loop
+// ==========================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n================================================");
-  Serial.println("  OrthoNex India — ESP32-CAM Cloud Relay v2.0  ");
-  Serial.println("================================================");
+  Serial.println("\n=======================================================");
+  Serial.println("  OrthoNex India — ESP32-CAM Zero-Lag Cloud Relay v3   ");
+  Serial.println("=======================================================");
 
-  // Setup Flash LED
+  // Setup Flash LED (starts ON as per user preset)
   pinMode(LED_GPIO_NUM, OUTPUT);
-  setFlash(false);
+  setFlash(true);
 
-  // Initialize Camera
-  initCamera();
+  // Initialize Camera with custom presets
+  initCameraWithPresets();
 
   // Connect to Wi-Fi
+  Serial.printf("[ESP-CAM] Connecting to Wi-Fi: %s", ssid);
   WiFi.begin(ssid, password);
-  WiFi.setSleep(false);
-  Serial.print("[ESP-CAM] Connecting to Wi-Fi: ");
-  Serial.println(ssid);
+  WiFi.setSleep(false); // Disable Wi-Fi sleep for lowest transmission latency
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(400);
     Serial.print(".");
   }
 
-  Serial.println("\n[ESP-CAM] Wi-Fi Connected!");
-  Serial.print("[ESP-CAM] Local IP Address: ");
+  Serial.println("\n[ESP-CAM] Wi-Fi connected successfully!");
+  Serial.print("[ESP-CAM] IP Address: ");
   Serial.println(WiFi.localIP());
 
-  // Connect to Cloud WebSocket
+  // Connect to Cloud Relay
   connectToCloud();
 }
 
 void loop() {
+  // Maintain WebSocket heartbeat and process cloud commands
   if (client.available()) {
     client.poll();
-
-    // Send video frame every 66ms (~15 FPS)
-    unsigned long now = millis();
-    if (now - lastFrameTime >= TARGET_FRAME_DELAY_MS) {
-      lastFrameTime = now;
-
-      camera_fb_t *fb = esp_camera_fb_get();
-      if (fb) {
-        // Send binary JPEG frame directly to Render cloud
-        client.sendBinary((const char *)fb->buf, fb->len);
-        esp_camera_fb_return(fb);
-      }
-    }
   } else {
-    // Retry connection if dropped
-    delay(3000);
-    connectToCloud();
+    static unsigned long lastReconnect = 0;
+    if (millis() - lastReconnect > 3000) {
+      lastReconnect = millis();
+      Serial.println("[ESP-CAM] Reconnecting to Cloud WebSocket...");
+      client.connect(ws_server_url);
+    }
+    return;
+  }
+
+  // Stream frames at calibrated target rate (~30 FPS)
+  unsigned long now = millis();
+  if (now - lastFrameTime >= TARGET_FRAME_DELAY_MS) {
+    lastFrameTime = now;
+
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+      Serial.println("[ESP-CAM] Frame capture failed");
+      return;
+    }
+
+    // Send binary JPEG frame directly over WebSocket
+    if (client.available()) {
+      client.sendBinary((const char *)fb->buf, fb->len);
+    }
+
+    esp_camera_fb_return(fb);
   }
 }
