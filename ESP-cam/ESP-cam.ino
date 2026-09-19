@@ -155,6 +155,7 @@ void connectToCloud() {
   Serial.print("[ESP-CAM] URL: ");
   Serial.println(ws_server_url);
 
+  client.setInsecure();
   client.onMessage(onMessageCallback);
   client.onEvent(onEventsCallback);
 
