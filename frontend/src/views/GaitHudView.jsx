@@ -153,14 +153,14 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
       animFrameRef.current = requestAnimationFrame(updateKinematics);
     };
 
-    if (camera.isWebcamActive || camera.sourceMode === 'sample' || camera.sourceMode === 'upload') {
+    if (camera.isWebcamActive || camera.sourceMode === 'sample' || camera.sourceMode === 'upload' || (camera.sourceMode === 'espcam' && (camera.isEspConnected || camera.isEspOnline))) {
       animFrameRef.current = requestAnimationFrame(updateKinematics);
     }
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [camera.isWebcamActive, camera.sourceMode, batterySaver]);
+  }, [camera.isWebcamActive, camera.sourceMode, camera.isEspConnected, camera.isEspOnline, batterySaver]);
 
   // Ensure stream stays bound if video element remounts
   const setVideoNode = useCallback(
@@ -715,7 +715,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
         {/* Layer 1.5: ESP32-CAM Stream View (Cloud WebSocket Frame or Direct MJPEG) */}
         {camera.sourceMode === 'espcam' && (
           <img
-            key={camera.espFrameBlobUrl || camera.espStreamUrl}
+            key="espcam-live-stream-img"
             src={camera.espFrameBlobUrl || camera.espStreamUrl}
             alt="ESP32-CAM Live Feed"
             style={{
@@ -761,7 +761,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
         )}
 
         {/* Layer 3: Idle / Standby Canvas when neither is active */}
-        {!camera.isWebcamActive && camera.sourceMode !== 'sample' && !(camera.sourceMode === 'upload' && camera.uploadedVideoUrl) && (
+        {!camera.isWebcamActive && camera.sourceMode !== 'sample' && !(camera.sourceMode === 'upload' && camera.uploadedVideoUrl) && camera.sourceMode !== 'espcam' && (
           <div className="absolute inset-0 bg-gradient-to-tr from-[#090e17] via-[#111827] to-[#0f172a] z-0 flex flex-col items-center justify-center p-lg text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary-container/20 border border-primary/40 flex items-center justify-center text-primary-fixed mb-sm shadow-lg">
               <span className="material-symbols-outlined text-[32px]">videocam</span>
@@ -824,7 +824,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
                 <span className={`w-2.5 h-2.5 rounded-full ${
                   isRecording
                     ? 'bg-error animate-ping'
-                    : camera.isWebcamActive
+                    : (camera.sourceMode === 'espcam' && (camera.isEspConnected || camera.isEspOnline)) || camera.isWebcamActive
                     ? 'bg-emerald-400 animate-pulse'
                     : camera.sourceMode === 'sample'
                     ? 'bg-tertiary-fixed-dim animate-pulse'

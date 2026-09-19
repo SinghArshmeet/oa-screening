@@ -934,12 +934,19 @@ export function getEspCamWebSocketUrl() {
 }
 
 export function getEspCamStreamUrl(ip) {
+  // If running in HTTPS cloud context (Vercel), stream directly from backend cloud relay
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return `${API_BASE}/api/esp/stream.mjpg`;
+  }
   const host = cleanEspHost(ip);
   const baseHost = host.split(':')[0];
   return `http://${baseHost}:81/stream`;
 }
 
 export function getEspCamFrameUrl(ip) {
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return `${API_BASE}/api/esp/live.jpg?_cb=${Date.now()}`;
+  }
   const host = cleanEspHost(ip);
   const baseHost = host.split(':')[0];
   const cb = Date.now();

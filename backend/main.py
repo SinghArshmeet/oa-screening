@@ -1081,3 +1081,35 @@ def esp_ws_status() -> dict[str, object]:
         "has_last_frame": esp_hub.last_frame is not None,
         "status": esp_hub.camera_status
     }
+
+
+@app.get("/api/esp/live.jpg")
+async def esp_live_frame():
+    """Returns the most recent JPEG frame captured by ESP32-CAM."""
+    if not esp_hub.last_frame:
+        raise HTTPException(status_code=404, detail="No camera frame received yet.")
+    return Response(content=esp_hub.last_frame, media_type="image/jpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+
+@app.get("/api/esp/stream.mjpg")
+async def esp_mjpeg_stream():
+    """Multipart MJPEG stream of live ESP32-CAM frames for direct <img> rendering."""
+    async def frame_generator():
+        last_sent = None
+        while True:
+            if esp_hub.last_frame and esp_hub.last_frame != last_sent:
+                last_sent = esp_hub.last_frame
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n"
+                    b"Content-Length: " + str(len(last_sent)).encode() + b"\r\n\r\n" +
+                    last_sent +
+                    b"\r\n"
+                )
+            await asyncio.sleep(0.04)  # ~25 FPS check cycle
+
+    return StreamingResponse(
+        frame_generator(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )

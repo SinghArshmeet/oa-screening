@@ -48,6 +48,7 @@ export function useCamera(isAuthenticated = false) {
   const [espFrameBlobUrl, setEspFrameBlobUrl] = useState(null);
   const [isWsRelayActive, setIsWsRelayActive] = useState(false);
   const wsRef = useRef(null);
+  const lastBlobUrlRef = useRef(null);
 
   // Connect to Cloud WebSocket Relay (Option B)
   useEffect(() => {
@@ -72,16 +73,19 @@ export function useCamera(isAuthenticated = false) {
           if (!active) return;
           if (event.data instanceof Blob) {
             const newUrl = URL.createObjectURL(event.data);
-            setEspFrameBlobUrl((prev) => {
-              if (prev) {
-                try { URL.revokeObjectURL(prev); } catch {}
-              }
-              return newUrl;
-            });
+            const oldUrl = lastBlobUrlRef.current;
+            lastBlobUrlRef.current = newUrl;
+            setEspFrameBlobUrl(newUrl);
+
+            // Revoke old blob after brief delay to avoid black frame flickering
+            if (oldUrl) {
+              setTimeout(() => {
+                try { URL.revokeObjectURL(oldUrl); } catch {}
+              }, 800);
+            }
             setIsEspConnected(true);
             setIsEspOnline(true);
             setEspStatus('connected');
-            setEspLatency('Cloud WSS');
           } else if (typeof event.data === 'string') {
             try {
               const msg = JSON.parse(event.data);
@@ -91,6 +95,7 @@ export function useCamera(isAuthenticated = false) {
                   if (!msg.online) setEspStatus('idle');
                 }
                 if (msg.flash !== undefined) setEspFlash(Boolean(msg.flash));
+                if (msg.fps) setEspLatency(`${msg.fps} FPS (Cloud)`);
               }
             } catch {}
           }
@@ -121,8 +126,22 @@ export function useCamera(isAuthenticated = false) {
     };
   }, []);
 
-  // Background ping heartbeat to detect ESP32-CAM online/offline state
+  // Background heartbeat to detect Cloud Relay & local ESP32-CAM online/offline state
   const checkEspOnline = useCallback(async (ipToCheck) => {
+    // 1. Check cloud relay first
+    try {
+      const statusRes = await fetch(`${API_BASE}/api/esp/ws/status`, { signal: AbortSignal.timeout(2500) });
+      if (statusRes.ok) {
+        const data = await statusRes.json();
+        if (data.camera_online) {
+          setIsEspOnline(true);
+          setEspLatency(`${data.fps || 12} FPS (Cloud)`);
+          return true;
+        }
+      }
+    } catch {}
+
+    // 2. Fallback to direct local ping
     const target = cleanEspHost(ipToCheck || espIp);
     try {
       const res = await pingDevice(target);
@@ -131,7 +150,6 @@ export function useCamera(isAuthenticated = false) {
       if (res?.latency) setEspLatency(res.latency);
       return online;
     } catch {
-      setIsEspOnline(false);
       return false;
     }
   }, [espIp]);
@@ -140,22 +158,37 @@ export function useCamera(isAuthenticated = false) {
     let active = true;
     const runPing = async () => {
       try {
+        // First check cloud status
+        const statusRes = await fetch(`${API_BASE}/api/esp/ws/status`, { signal: AbortSignal.timeout(3000) });
+        if (statusRes.ok && active) {
+          const data = await statusRes.json();
+          if (data.camera_online) {
+            setIsEspOnline(true);
+            setIsEspConnected(true);
+            setEspStatus('connected');
+            setEspLatency(`${data.fps || 12} FPS (Cloud)`);
+            return;
+          }
+        }
+      } catch {}
+
+      try {
         const res = await pingDevice(espIp);
         if (active) {
           setIsEspOnline(Boolean(res && res.reachable));
           if (res?.latency) setEspLatency(res.latency);
         }
       } catch {
-        if (active) setIsEspOnline(false);
+        if (active && !isWsRelayActive) setIsEspOnline(false);
       }
     };
     runPing();
-    const interval = setInterval(runPing, 8000);
+    const interval = setInterval(runPing, 5000);
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [espIp]);
+  }, [espIp, isWsRelayActive]);
 
   const setEspIp = useCallback((ip) => {
     const cleaned = cleanEspHost(ip);
@@ -311,22 +344,11 @@ export function useCamera(isAuthenticated = false) {
     setEspStatus('connecting');
     setCameraError(null);
 
-    // 1. Probe connectivity
-    const pingRes = await pingDevice(targetIp);
-    setEspLatency(pingRes.latency || '16ms');
-
-    // 2. Fetch camera state
-    getEspCamStatus(targetIp).then((st) => {
-      if (st) {
-        if (st.flash !== undefined) setEspFlash(st.flash > 0);
-        else if (st.led_intensity !== undefined) setEspFlash(st.led_intensity > 0);
-        if (st.vflip !== undefined) setEspVFlip(Boolean(st.vflip));
-        if (st.hmirror !== undefined) setEspHMirror(Boolean(st.hmirror));
-      }
-    });
-
     const streamUrl = getEspCamStreamUrl(targetIp);
     setEspStreamUrl(streamUrl);
+
+    // 1. Probe connectivity (cloud relay or local)
+    checkEspOnline(targetIp);
 
     setSourceMode('espcam');
     setIsEspConnected(true);
@@ -334,15 +356,28 @@ export function useCamera(isAuthenticated = false) {
     setEspStatus('connected');
     setIsWebcamActive(false);
     return true;
-  }, [espIp, setEspIp, stopCamera]);
+  }, [espIp, setEspIp, stopCamera, checkEspOnline]);
 
   const toggleEspFlash = useCallback(async () => {
     const next = !espFlash;
     setEspFlash(next);
-    const ok = await controlEspCam(espIp, 'flash', next ? 1 : 0);
-    if (!ok) {
-      await controlEspCam(espIp, 'led_intensity', next ? 255 : 0);
+
+    // Send command directly over Cloud WebSocket Relay
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: 'control',
+          command: 'flash',
+          flash: next ? 1 : 0,
+          val: next ? 1 : 0
+        }));
+      } catch (err) {
+        console.warn('Failed to send flash toggle via WebSocket:', err);
+      }
     }
+
+    // Also attempt local subnet fallback
+    controlEspCam(espIp, 'flash', next ? 1 : 0).catch(() => {});
   }, [espFlash, espIp]);
 
   const setEspResolution = useCallback(async (resName) => {
