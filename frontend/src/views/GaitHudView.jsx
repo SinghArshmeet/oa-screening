@@ -706,23 +706,25 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
             });
           }}
           style={{
-            opacity: camera.isWebcamActive ? camera.hudOpacity / 100 : 0,
-            display: camera.isWebcamActive ? 'block' : 'none'
+            opacity: camera.sourceMode === 'webcam' && camera.isWebcamActive ? camera.hudOpacity / 100 : 0,
+            display: camera.sourceMode === 'webcam' && camera.isWebcamActive ? 'block' : 'none'
           }}
           className="absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-300"
         />
 
         {/* Layer 1.5: ESP32-CAM Direct MJPEG Stream View */}
-        {camera.sourceMode === 'espcam' && camera.isEspConnected && (
+        {camera.sourceMode === 'espcam' && (
           <img
+            key={camera.espStreamUrl}
             src={camera.espStreamUrl}
             alt="ESP32-CAM Live Feed"
             style={{
-              opacity: camera.hudOpacity / 100
+              opacity: camera.hudOpacity / 100,
+              display: 'block'
             }}
-            className="absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-300 pointer-events-none"
-            onError={() => {
-              console.warn('Direct stream img failed, relying on canvas stream');
+            className="absolute inset-0 w-full h-full object-contain z-0 transition-opacity duration-300"
+            onError={(e) => {
+              console.warn('ESP32-CAM stream display:', e);
             }}
           />
         )}

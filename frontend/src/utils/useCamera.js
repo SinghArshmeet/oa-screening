@@ -249,57 +249,14 @@ export function useCamera(isAuthenticated = false) {
       }
     });
 
-    // 3. Create offscreen canvas for live frame ingestion & MediaStream creation
-    if (!espCanvasRef.current) {
-      const cvs = document.createElement('canvas');
-      cvs.width = 640;
-      cvs.height = 480;
-      espCanvasRef.current = cvs;
-    }
-    const canvas = espCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    // Setup Image element to ingest live stream frames
-    if (!espImgRef.current) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      espImgRef.current = img;
-    }
-    const img = espImgRef.current;
     const streamUrl = getEspCamStreamUrl(targetIp);
     setEspStreamUrl(streamUrl);
-    img.src = streamUrl;
-
-    let active = true;
-    const drawLoop = () => {
-      if (!active) return;
-      if (img.complete && img.naturalWidth > 0) {
-        if (canvas.width !== img.naturalWidth) {
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      }
-      espAnimRef.current = requestAnimationFrame(drawLoop);
-    };
-    espAnimRef.current = requestAnimationFrame(drawLoop);
-
-    // 4. Capture native MediaStream from canvas for MediaRecorder & Video playback
-    try {
-      if (canvas.captureStream) {
-        const cStream = canvas.captureStream(25);
-        streamRef.current = cStream;
-        setStream(cStream);
-      }
-    } catch (err) {
-      console.warn('Canvas captureStream error:', err);
-    }
 
     setSourceMode('espcam');
     setIsEspConnected(true);
     setIsEspOnline(true);
     setEspStatus('connected');
-    setIsWebcamActive(true);
+    setIsWebcamActive(false);
     return true;
   }, [espIp, setEspIp, stopCamera]);
 
