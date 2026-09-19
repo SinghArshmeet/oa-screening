@@ -4,19 +4,7 @@
  * Streams live camera frames directly to the cloud backend on Render:
  * wss://oa-ner-screening.onrender.com/api/esp/ws/camera
  * 
- * Calibrated with:
- * - Resolution: VGA (640x480) - 4x sharper than QVGA, eliminates pixelation!
- * - Quality: 10 (High clarity)
- * - Clock: 20 MHz
- * - Brightness: +1
- * - Contrast: +1
- * - Saturation: 0
- * - Sharpness: 0
- * - De-Noise: 2
- * - AWB, AEC, AGC, GMA, Lens Correction: ON
- * - V-Flip: ON (True orientation)
- * - H-Mirror: OFF
- * - Flash LED: Toggleable live from web HUD
+ * Target Website: https://orthonex.vercel.app/#gait
  */
 
 #include <Arduino.h>
@@ -73,6 +61,8 @@ void setFlash(bool state) {
 
 void initCamera() {
   camera_config_t config;
+  memset(&config, 0, sizeof(camera_config_t)); // Safe zero-initialization
+
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer   = LEDC_TIMER_0;
   config.pin_d0       = Y2_GPIO_NUM;
@@ -95,8 +85,8 @@ void initCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA; // Crisp 640x480 resolution
-    config.jpeg_quality = 10;            // High clarity
+    config.frame_size   = FRAMESIZE_VGA; // Crisp 640x480 (eliminates pixelation)
+    config.jpeg_quality = 10;            // High quality
     config.fb_count     = 2;
     config.grab_mode    = CAMERA_GRAB_LATEST;
   } else {
@@ -106,6 +96,7 @@ void initCamera() {
     config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
   }
 
+  Serial.println("[ESP-CAM] Initializing camera driver...");
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.printf("[ESP-CAM] Camera init failed: 0x%x\n", err);
@@ -113,25 +104,13 @@ void initCamera() {
     ESP.restart();
   }
 
-  // Apply User-Calibrated Sensor Tuning
+  // Safe sensor configuration (checking function pointers)
   sensor_t *s = esp_camera_sensor_get();
   if (s != NULL) {
-    s->set_vflip(s, 1);                      // V-Flip ON (Upright)
-    s->set_hmirror(s, 0);                    // H-Mirror OFF (True laterality)
-    s->set_brightness(s, 1);                 // Brightness +1
-    s->set_contrast(s, 1);                   // Contrast +1
-    s->set_saturation(s, 0);                 // Saturation 0
-    s->set_sharpness(s, 0);                  // Sharpness 0
-    s->set_denoise(s, 2);                    // De-Noise 2
-    s->set_ae_level(s, 0);                   // Exposure Level 0
-    s->set_gainceiling(s, (gainceiling_t)0); // Gainceiling 0
-    s->set_special_effect(s, 0);             // No effect
-    s->set_whitebal(s, 1);                   // AWB enabled
-    s->set_dcw(s, 1);                        // Advanced AWB enabled
-    s->set_exposure_ctrl(s, 1);              // AEC enabled
-    s->set_gain_ctrl(s, 1);                  // AGC enabled
-    s->set_raw_gma(s, 1);                    // GMA enabled
-    s->set_lenc(s, 1);                       // Lens correction enabled
+    if (s->set_vflip) s->set_vflip(s, 1);
+    if (s->set_brightness) s->set_brightness(s, 1);
+    if (s->set_contrast) s->set_contrast(s, 1);
+    if (s->set_saturation) s->set_saturation(s, 0);
   }
 
   Serial.println("[ESP-CAM] Camera initialized with crisp VGA presets!");
@@ -169,12 +148,12 @@ void onMessageCallback(WebsocketsMessage msg) {
   }
 
   // Live V-Flip adjustment
-  if (s != NULL && data.indexOf("vflip") >= 0) {
+  if (s != NULL && data.indexOf("vflip") >= 0 && s->set_vflip) {
     s->set_vflip(s, data.indexOf("\"val\":1") >= 0 ? 1 : 0);
   }
 
   // Live H-Mirror adjustment
-  if (s != NULL && data.indexOf("hmirror") >= 0) {
+  if (s != NULL && data.indexOf("hmirror") >= 0 && s->set_hmirror) {
     s->set_hmirror(s, data.indexOf("\"val\":1") >= 0 ? 1 : 0);
   }
 }
@@ -217,7 +196,7 @@ void setup() {
   Serial.println("  OrthoNex India — ESP32-CAM Crisp Cloud Relay  ");
   Serial.println("================================================");
 
-  // Setup Flash LED (start OFF to ensure clean power rail at boot)
+  // Setup Flash LED
   pinMode(LED_GPIO_NUM, OUTPUT);
   setFlash(false);
 
