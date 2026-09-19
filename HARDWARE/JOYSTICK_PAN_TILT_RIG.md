@@ -104,28 +104,34 @@ In clinical gait screening, an operator uses a physical analog joystick to smoot
 | **220 µF Capacitor** | (+) Long leg | **+5V Power Rail** | +5V | Buffers servo motor surges |
 | **220 µF Capacitor** | (–) Short leg | **Common GND Rail** | GND | Side marked with stripe |
 
-### B. ESP32-CAM (Camera Video Unit)
-| ESP32-CAM Pin | Connect To | Notes |
+### B. Arduino Nano Connections (Confirmed Working Setup)
+| Arduino Nano Pin | Connect To | Function |
 |:---:|:---|:---|
-| **5V** | **+5V Power Rail** (L7805CV) | Powers camera board |
-| **GND** | **Common GND Rail** | Ground |
-| **IO0** | *Leave completely disconnected* | Must float for normal boot |
+| **`5V` Pin** | **+5V Breadboard Rail** (from L7805CV) | Powers the Nano directly from regulated 5V |
+| **`GND` Pin** | **Common GND Breadboard Rail** | **CRITICAL:** Must be on GND rail for common ground return |
+| **`A0` Pin** | **Potentiometer Center Leg (Leg 2)** | Analog steering wiper signal |
+| **`D9` Pin** | **SG90 Servo ORANGE Wire** | High-speed 50Hz PWM servo signal |
 
-### C. SG90 Servo (Gimbal Actuator)
+### C. B10k Potentiometer (Manual Steering Knob)
+| Potentiometer Leg | Connect To | Notes |
+|:---:|:---|:---|
+| **Leg 1 (Outer Left)** | **Common GND Rail** | Ground reference (Separate breadboard row) |
+| **Leg 2 (CENTER LEG)** | **Arduino Nano `A0` Pin** | Variable 0.68V - 5.00V steering voltage |
+| **Leg 3 (Outer Right)** | **+5V Power Rail** | High reference (Separate breadboard row) |
+
+### D. SG90 Servo Motor
 | Servo Wire Color | Connect To | Notes |
 |:---:|:---|:---|
-| 🔴 **Red** | **+5V Power Rail** (L7805CV) | Motor power from 5V rail |
-| 🟤 / ⚫ **Brown / Black** | **Common GND Rail** | Motor ground |
-| 🟠 / 🟡 **Orange / Yellow** | **Arduino Nano Pin D9** | PWM control signal |
+| 🔴 **Red Wire** | **+5V Breadboard Rail** | Motor power (buffered by 220µF cap) |
+| 🟤 / ⚫ **Brown or Black Wire** | **Common GND Breadboard Rail** | Motor ground return |
+| 🟠 / 🟡 **Orange Wire** | **Arduino Nano `D9` Pin** | 50Hz PWM position signal |
 
-### D. Single Joystick (Operator Controller)
-| Joystick Pin | Connect To | Notes |
+### E. AI-Thinker ESP32-CAM (Untethered Video Streaming)
+| ESP32-CAM Pin | Connect To | Notes |
 |:---:|:---|:---|
-| **VCC** | **Arduino Nano 5V Pin** | Logic reference voltage |
-| **GND** | **Arduino Nano GND Pin** | Ground reference |
-| **VRx** | **Arduino Nano Pin A0** | Analog horizontal axis |
-| **VRy** | *Optional / Unconnected* | For 2nd tilt servo if added |
-| **SW** | *Unconnected* | Pushbutton switch |
+| **`5V` Pin** | **+5V Breadboard Rail** | Powers camera module & Wi-Fi |
+| **`GND` Pin** | **Common GND Breadboard Rail** | Common ground |
+| **`IO0` Pin** | **Leave Disconnected (Floating)** | Required for normal standalone boot |
 
 ---
 
