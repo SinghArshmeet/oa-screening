@@ -41,7 +41,7 @@ export function useCamera(isAuthenticated = false) {
   const [espStatus, setEspStatus] = useState('idle'); // 'idle' | 'connecting' | 'connected' | 'error'
   const [espLatency, setEspLatency] = useState(null);
   const [espFlash, setEspFlash] = useState(false);
-  const [espRes, setEspRes] = useState('QVGA');
+  const [espRes, setEspRes] = useState('VGA');
   const [espVFlip, setEspVFlip] = useState(false);
   const [espHMirror, setEspHMirror] = useState(false);
   const [espStreamUrl, setEspStreamUrl] = useState(() => getEspCamStreamUrl('192.168.0.109'));
@@ -381,22 +381,59 @@ export function useCamera(isAuthenticated = false) {
   }, [espFlash, espIp]);
 
   const setEspResolution = useCallback(async (resName) => {
-    const map = { QVGA: 5, CIF: 6, VGA: 8, SVGA: 9, XGA: 10, SXGA: 11, UXGA: 12 };
-    const val = map[resName] ?? 5;
+    const map = { QVGA: 5, CIF: 6, VGA: 8, SVGA: 9, HD: 11, XGA: 10, SXGA: 11, UXGA: 12 };
+    const val = map[resName] ?? 8;
     setEspRes(resName);
-    await controlEspCam(espIp, 'framesize', val);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: 'control',
+          command: 'framesize',
+          framesize: resName,
+          val: val
+        }));
+      } catch (err) {
+        console.warn('Failed to send framesize via WebSocket:', err);
+      }
+    }
+    await controlEspCam(espIp, 'framesize', val).catch(() => {});
   }, [espIp]);
 
   const toggleEspVFlip = useCallback(async () => {
     const next = !espVFlip;
     setEspVFlip(next);
-    await controlEspCam(espIp, 'vflip', next ? 1 : 0);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: 'control',
+          command: 'vflip',
+          vflip: next ? 1 : 0,
+          val: next ? 1 : 0
+        }));
+      } catch (err) {
+        console.warn('Failed to send vflip via WebSocket:', err);
+      }
+    }
+    await controlEspCam(espIp, 'vflip', next ? 1 : 0).catch(() => {});
   }, [espVFlip, espIp]);
 
   const toggleEspHMirror = useCallback(async () => {
     const next = !espHMirror;
     setEspHMirror(next);
-    await controlEspCam(espIp, 'hmirror', next ? 1 : 0);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: 'control',
+          command: 'hmirror',
+          hmirror: next ? 1 : 0,
+          val: next ? 1 : 0
+        }));
+      } catch (err) {
+        console.warn('Failed to send hmirror via WebSocket:', err);
+      }
+    }
+    await controlEspCam(espIp, 'hmirror', next ? 1 : 0).catch(() => {});
   }, [espHMirror, espIp]);
 
   const refreshEspStatus = useCallback(async () => {

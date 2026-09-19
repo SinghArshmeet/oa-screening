@@ -114,18 +114,18 @@ void initCameraWithPresets() {
   config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 12000000; // Calibrated 12 MHz clock for stable zero-lag
+  config.xclk_freq_hz = 16000000; // 16 MHz clock for fast, crisp video readout
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size   = FRAMESIZE_QVGA; // Calibrated 320x240
-  config.jpeg_quality = 10;             // Calibrated high clarity
+  config.frame_size   = FRAMESIZE_VGA;  // Calibrated 640x480 (4x sharper than QVGA)
+  config.jpeg_quality = 10;             // High clarity (eliminates pixelation)
   config.fb_count     = 2;
   config.grab_mode    = CAMERA_GRAB_LATEST;
 
   Serial.println("[ESP-CAM] Initializing OV3660 sensor with custom presets...");
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("[ESP-CAM] Init failed at 12MHz (0x%x). Retrying at 10MHz...\n", err);
-    config.xclk_freq_hz = 10000000;
+    Serial.printf("[ESP-CAM] Init failed at 16MHz (0x%x). Retrying at 12MHz...\n", err);
+    config.xclk_freq_hz = 12000000;
     err = esp_camera_init(&config);
   }
 
@@ -140,7 +140,7 @@ void initCameraWithPresets() {
   // ==========================================
   sensor_t *s = esp_camera_sensor_get();
   if (s != NULL) {
-    s->set_framesize(s, FRAMESIZE_QVGA); // 320x240
+    s->set_framesize(s, FRAMESIZE_VGA); // 640x480 (Crisp & non-pixelated)
     s->set_quality(s, 10);              // High quality
     s->set_brightness(s, 1);            // Brightness +1
     s->set_contrast(s, 1);              // Contrast +1
@@ -191,6 +191,10 @@ void onMessageCallback(WebsocketsMessage msg) {
       s->set_framesize(s, FRAMESIZE_CIF);
     } else if (data.indexOf("VGA") >= 0 || data.indexOf("\"val\":8") >= 0) {
       s->set_framesize(s, FRAMESIZE_VGA);
+    } else if (data.indexOf("SVGA") >= 0 || data.indexOf("\"val\":9") >= 0) {
+      s->set_framesize(s, FRAMESIZE_SVGA);
+    } else if (data.indexOf("HD") >= 0 || data.indexOf("\"val\":11") >= 0) {
+      s->set_framesize(s, FRAMESIZE_HD);
     }
   }
 

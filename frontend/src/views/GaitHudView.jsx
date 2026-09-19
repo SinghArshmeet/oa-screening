@@ -648,11 +648,11 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
                 onChange={(e) => camera.setEspResolution(e.target.value)}
                 className="bg-transparent text-xs font-semibold text-on-surface focus:outline-none cursor-pointer"
               >
-                <option value="QVGA">QVGA 320x240 (30+ FPS · Recommended)</option>
-                <option value="CIF">CIF 400x296 (25 FPS)</option>
-                <option value="VGA">VGA 640x480 (20 FPS)</option>
-                <option value="SVGA">SVGA 800x600 (15 FPS)</option>
-                <option value="UXGA">UXGA 1600x1200 (Still HQ)</option>
+                <option value="VGA">VGA 640x480 (Crisp & Smooth · Recommended)</option>
+                <option value="SVGA">SVGA 800x600 (High Detail)</option>
+                <option value="HD">HD 1280x720 (16:9 Widescreen)</option>
+                <option value="CIF">CIF 400x296 (Standard)</option>
+                <option value="QVGA">QVGA 320x240 (Ultra Low Bandwidth)</option>
               </select>
             </div>
 
@@ -720,7 +720,8 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
             alt="ESP32-CAM Live Feed"
             style={{
               opacity: camera.hudOpacity / 100,
-              display: 'block'
+              display: 'block',
+              imageRendering: 'auto'
             }}
             className="absolute inset-0 w-full h-full object-contain z-0 transition-opacity duration-300"
             onError={(e) => {
@@ -836,7 +837,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
                   {isRecording
                     ? `REC SESSION: 00:0${timerSeconds} / 00:08`
                     : camera.sourceMode === 'espcam'
-                    ? `ESP32-CAM (OV3660) · ${camera.espRes} · ${camera.espLatency || '14ms'}`
+                    ? `ESP32-CAM (OV3660) · ${camera.espRes || 'VGA'} · ${camera.espLatency && !camera.espLatency.includes('Unreachable') ? camera.espLatency : 'Live Cloud'}`
                     : camera.isWebcamActive
                     ? 'OPTICAL CAM ACTIVE · LIVE 30FPS'
                     : camera.sourceMode === 'sample'
