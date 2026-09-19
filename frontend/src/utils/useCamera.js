@@ -25,9 +25,9 @@ export function useCamera(isAuthenticated = false) {
   // ESP32-CAM State
   const [espIp, setEspIpState] = useState(() => {
     try {
-      return localStorage.getItem('orthonex_espcam_ip') || '192.168.1.105';
+      return localStorage.getItem('orthonex_espcam_ip') || '192.168.0.109';
     } catch {
-      return '192.168.1.105';
+      return '192.168.0.109';
     }
   });
   const [isEspOnline, setIsEspOnline] = useState(false);
@@ -38,7 +38,7 @@ export function useCamera(isAuthenticated = false) {
   const [espRes, setEspRes] = useState('QVGA');
   const [espVFlip, setEspVFlip] = useState(false);
   const [espHMirror, setEspHMirror] = useState(false);
-  const [espStreamUrl, setEspStreamUrl] = useState(() => getEspCamStreamUrl('192.168.1.105'));
+  const [espStreamUrl, setEspStreamUrl] = useState(() => getEspCamStreamUrl('192.168.0.109'));
 
   // Background ping heartbeat to detect ESP32-CAM online/offline state
   const checkEspOnline = useCallback(async (ipToCheck) => {

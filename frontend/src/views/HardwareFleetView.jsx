@@ -7,14 +7,14 @@ export default function HardwareFleetView({ currentUser, onNavigate, camera }) {
     {
       id: 'ESP-NODE-01',
       name: 'Primary Gait Runway Camera (Diphu PHC)',
-      ip: '192.168.1.105:81',
+      ip: '192.168.0.109:81',
       status: 'active',
       rssi: '-54 dBm (Excellent)',
       lens: 'OV2640 Optical · 1.0m Elevation',
       fps: 30,
       lux: 420,
       battery: 'Mains AC Powered',
-      streamUrl: 'http://192.168.1.105:81/stream'
+      streamUrl: 'http://192.168.0.109:81/stream'
     },
     {
       id: 'ESP-NODE-02',
