@@ -141,3 +141,47 @@ After flashing, the module can operate untethered using a 5V powerbank or an AC/
 
 > [!TIP]
 > The **470µF electrolytic capacitor** placed across `5V` and `GND` prevents brownout restarts during Wi-Fi connection and frame transmission spikes.
+
+---
+
+## 5. Servo Motor (Pan / Tilt) Wiring Schematic
+
+When adding a tracking rig (SG90 or MG90S micro-servos) to the ESP32-CAM:
+
+```
+                          5V 2A POWER SUPPLY / MB SHIELD
+                       ┌──────────────────────────────────┐
+                       │                              5V  ├───┬─────────────┬─────────── [Red: Servo 1 VCC]
+                       │                                  │   │             │
+                       │                                  │ ┌─┴─┐         ┌─┴─┐
+                       │                                  │ │ + │ 220µF   │ + │ 100nF   [Red: Servo 2 VCC]
+                       │                                  │ │   │ to      │   │ Ceramic 
+                       │                                  │ │   │ 470µF   │   │
+                       │                                  │ │ - │         │ - │
+                       │                                  │ └─┬─┘         └─┬─┘
+                       │                              GND ├───┴─────────────┴───┬─────── [Black: Servo 1 GND]
+                       └──────────────────────────────────┘                     │
+                                                                                │        [Black: Servo 2 GND]
+                       AI-THINKER ESP32-CAM                                     │
+                       ┌──────────────────────────────────┐                     │
+                       │                              GND ├─────────────────────┘
+                       │                          GPIO 13 ├───────────────────────────── [Orange: Pan Servo PWM]
+                       │                          GPIO 14 ├───────────────────────────── [Orange: Tilt Servo PWM]
+                       │                                  │
+                       │ [OV2640 CAMERA LENS]             │
+                       └──────────────────────────────────┘
+```
+
+### Servo Pinout Quick Reference:
+| Servo Wire Color | Signal Name | ESP32-CAM Target Pin | Electrical Notes |
+|:---:|:---:|:---:|:---|
+| 🔴 **Red** | Power (VCC) | **5V Pin** | Must receive 4.8V–6.0V. **NEVER connect to 3.3V pin!** |
+| 🟤 / ⚫ **Brown / Black** | Ground (GND) | **GND Pin** | Common ground between power source, servo, and ESP32. |
+| 🟠 / 🟡 **Orange / Yellow** | PWM Signal (Pan) | **GPIO 13** | Primary pan axis (horizontal 0° to 180°). |
+| 🟠 / 🟡 **Orange / Yellow** | PWM Signal (Tilt) | **GPIO 14** (or **GPIO 15**) | Optional tilt axis (vertical pitch 0° to 60°). |
+
+> [!WARNING]
+> **Avoid Restricted Pins:**
+> - **DO NOT USE GPIO 16:** Connected to 4MB external PSRAM chip select; touching it crashes camera memory.
+> - **DO NOT USE GPIO 0:** Camera 20MHz XCLK master clock and boot pin.
+> - **DO NOT USE GPIO 4:** Connected to high-power white Flash LED.

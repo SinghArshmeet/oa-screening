@@ -13,7 +13,8 @@ This directory contains complete documentation, wiring schematics, pinout refere
 4. [Camera Sensor Installation & Alignment](#camera-sensor-installation--alignment)
 5. [Clinical Rig & Physical Setup Guide](#clinical-rig--physical-setup-guide)
 6. [Power Specifications & Decoupling](#power-specifications--decoupling)
-7. [Hardware Troubleshooting Matrix](#hardware-troubleshooting-matrix)
+7. [Pan / Tilt Servo Motor Integration](#pan--tilt-servo-motor-integration)
+8. [Hardware Troubleshooting Matrix](#hardware-troubleshooting-matrix)
 
 ---
 
@@ -31,7 +32,8 @@ The OrthoNex screening system leverages an **AI-Thinker ESP32-CAM** module to de
    │  (Dual-Core 240MHz,   │    Outbound TLS WebSocket   │   (FastAPI / Render.com)  │
    │   4MB External PSRAM) │ <══════════════════════════ │  /api/esp/ws/camera (WSS) │
    └──────────┬────────────┘     Hardware Controls       └─────────────┬─────────────┘
-              │                  (Flash Light, FPS)                    │
+              │                  (Flash Light, FPS,                    │
+              │                   Pan/Tilt Tracking)                   │
    ┌──────────▼────────────┐                                           │ Low-Latency
    │   ESP32-CAM-MB Shield │                                           │ Binary Frames
    │  (CH340G USB-UART)    │                                           ▼
@@ -43,9 +45,9 @@ The OrthoNex screening system leverages an **AI-Thinker ESP32-CAM** module to de
 ```
 
 ### Key Hardware Capabilities
-- **Capture Resolution:** QVGA (320×240) / CIF (400×296) optimized for cloud transmission at ~15-20 FPS.
+- **Capture Resolution:** VGA (640×480) / QVGA (320×240) optimized for cloud transmission at ~15-20 FPS.
 - **Onboard Lighting:** Ultra-bright SMD Flash LED on **GPIO 4** controllable via web interface for low-light clinical environments.
-- **Bi-directional Tele-Control:** Remote Flash trigger, resolution adjustment, and status telemetry.
+- **Bi-directional Tele-Control:** Remote Flash trigger, resolution adjustment, pan/tilt servo tracking, and status telemetry.
 - **Cloud-Ready:** Uses outbound TLS WebSockets—**no port forwarding, static IP, or router configuration required**.
 
 ---
@@ -58,10 +60,12 @@ The OrthoNex screening system leverages an **AI-Thinker ESP32-CAM** module to de
 | 2 | **OV2640 Camera Module** | 2-Megapixel camera sensor (66°–120° FOV, DVP interface) | Image capture | **Mandatory** (bundled) |
 | 3 | **ESP32-CAM-MB Shield** | Dual-deck daughterboard with CH340G chip, RST + IO0 buttons | USB programming, power & auto-reset | **Highly Recommended** |
 | 4 | **Micro-USB Cable** | High-quality 4-wire data & power cable | Flashing and continuous 5V power | **Mandatory** |
-| 5 | **5V / 2A Power Adapter** | Clean DC regulated USB power source (phone charger / powerbank) | Prevents brownouts during Wi-Fi transmission | **Mandatory** |
-| 6 | *FT232RL FTDI Adapter* | 3.3V/5V USB-to-TTL serial converter | Alternative programmer (only if MB shield is unavailable) | Optional fallback |
-| 7 | *DuPont Jumper Wires* | Female-to-Female jumper cables | Wiring FTDI programmer to ESP32 pins | Optional fallback |
-| 8 | *Mini Tripod / Stand* | 0.8m to 1.0m height camera stand | Stable positioning for patient gait capture | Recommended |
+| 5 | **5V / 2A Power Adapter** | Clean DC regulated USB power source (phone charger / powerbank) | Prevents brownouts during Wi-Fi transmission & servo moves | **Mandatory** |
+| 6 | **SG90 / MG90S Micro Servo** | 9g micro-servo motor (Pan on GPIO 13, optional Tilt on GPIO 14) | Automated patient runway tracking | Optional / Recommended |
+| 7 | **100µF–470µF Capacitor** | 10V–16V electrolytic capacitor across 5V & GND | Buffers current spikes to prevent camera brownout | Recommended with Servos |
+| 8 | *FT232RL FTDI Adapter* | 3.3V/5V USB-to-TTL serial converter | Alternative programmer (only if MB shield is unavailable) | Optional fallback |
+| 9 | *DuPont Jumper Wires* | Female-to-Female / Female-to-Male jumper cables | Wiring servos, FTDI, or capacitors | Required with Servos |
+| 10 | *Mini Tripod / Stand* | 0.8m to 1.0m height camera stand | Stable positioning for patient gait capture | Recommended |
 
 ---
 
@@ -213,6 +217,20 @@ ESP32-CAM modules are sensitive to power voltage drops. During Wi-Fi calibration
 
 ---
 
+## 🤖 Pan / Tilt Servo Motor Integration
+
+For dynamic patient tracking across the gait runway, micro-servos (SG90 or MG90S) can be mounted beneath the camera unit.
+
+- **Pan (Horizontal 0°–180°):** Connect to **GPIO 13**
+- **Tilt (Vertical 0°–60°):** Connect to **GPIO 14** (or **GPIO 15**)
+- **Power (VCC):** Must connect to **5V** (Never 3.3V!)
+- **Decoupling:** Place a **220µF–470µF electrolytic capacitor** across 5V and GND to prevent motor inrush current from causing camera brownouts.
+
+For full schematics, timer allocation (`ESP32PWM::allocateTimer(1)`), pinout restrictions, and firmware snippets:
+👉 **[Read the Complete Servo Integration Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/SERVO_INTEGRATION.md)**
+
+---
+
 ## 🛠️ Hardware Troubleshooting Matrix
 
 | Symptom / Error | Root Cause | Solution |
@@ -227,6 +245,7 @@ ESP32-CAM modules are sensitive to power voltage drops. During Wi-Fi calibration
 ---
 
 ## 📁 Additional Hardware Documentation
+- [Servo Motor Pan/Tilt Tracking Guide](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/SERVO_INTEGRATION.md)
 - [Wiring Schematics & Circuit Diagrams](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/WIRING_DIAGRAM.md)
 - [Complete Pinout & GPIO Multiplexing Reference](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/PINOUT_REFERENCE.md)
 - [Bill of Materials & Technical Specifications](file:///c:/Users/Arshmeet/OneDrive/Desktop/Projects/OA_NER%20Screening/HARDWARE/BOM_AND_SPECS.md)
