@@ -9,16 +9,23 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include "esp_camera.h"
 #include <ArduinoWebsockets.h>
 
 using namespace websockets;
 
 // ==========================================
-// 1. Wi-Fi Credentials
+// 1. Wi-Fi Multi-Network Setup (Auto-Switching)
 // ==========================================
-const char *ssid     = "SEXY_PAAJI_KA_WIFI";
-const char *password = "703sexypaajiskira";
+WiFiMulti wifiMulti;
+
+// Add any networks here. The ESP32-CAM connects to whichever is available!
+void setupWiFiNetworks() {
+  wifiMulti.addAP("SEXY_PAAJI_KA_WIFI", "703sexypaajiskira");     // Home / Lab Wi-Fi
+  wifiMulti.addAP("OrthoNex_Hotspot", "orthonex123");             // Mobile Hotspot (Expo Backup)
+  // wifiMulti.addAP("EXPO_VENUE_SSID", "expo_password");        // Add Expo Wi-Fi when known
+}
 
 // ==========================================
 // 2. Cloud Server Settings (Render Backend)
@@ -50,7 +57,7 @@ const char *ws_server_url = "wss://oa-ner-screening.onrender.com/api/esp/ws/came
 
 WebsocketsClient client;
 unsigned long lastFrameTime = 0;
-const int TARGET_FRAME_DELAY_MS = 50; // ~20 FPS smooth streaming
+const int TARGET_FRAME_DELAY_MS = 40; // Silky ~25 FPS low-latency stream
 bool flashState = false;
 
 void setFlash(bool state) {
@@ -85,13 +92,13 @@ void initCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA; // Crisp 640x480 (eliminates pixelation)
-    config.jpeg_quality = 10;            // High quality
+    config.frame_size   = FRAMESIZE_VGA;     // Crisp 640x480
+    config.jpeg_quality = 16;                // Zero-lag sweetspot (65% less data, low CPU encryption)
     config.fb_count     = 2;
-    config.grab_mode    = CAMERA_GRAB_LATEST;
+    config.grab_mode    = CAMERA_GRAB_LATEST; // Always drop old queued frames, stream real-time!
   } else {
-    config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 12;
+    config.frame_size   = FRAMESIZE_HVGA;    // 480x320
+    config.jpeg_quality = 16;
     config.fb_count     = 1;
     config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
   }
@@ -113,7 +120,7 @@ void initCamera() {
     if (s->set_saturation) s->set_saturation(s, 0);
   }
 
-  Serial.println("[ESP-CAM] Camera initialized with crisp VGA presets!");
+  Serial.println("[ESP-CAM] Camera initialized with low-latency VGA presets!");
 }
 
 void onMessageCallback(WebsocketsMessage msg) {
@@ -203,18 +210,21 @@ void setup() {
   // Initialize Camera
   initCamera();
 
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
+  // Setup Multi-WiFi Networks
+  setupWiFiNetworks();
+  
   WiFi.setSleep(false);
-  Serial.print("[ESP-CAM] Connecting to Wi-Fi: ");
-  Serial.println(ssid);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm); // Maximum RF Transmit Power (19.5 dBm)
+  Serial.println("[ESP-CAM] Scanning and connecting to best Wi-Fi network...");
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (wifiMulti.run() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
-  Serial.println("\n[ESP-CAM] Wi-Fi Connected!");
+  Serial.println("\n[ESP-CAM] Wi-Fi Connected Successfully!");
+  Serial.printf("[ESP-CAM] Connected to SSID: %s\n", WiFi.SSID().c_str());
+  Serial.printf("[ESP-CAM] Signal Strength (RSSI): %d dBm\n", WiFi.RSSI());
   Serial.print("[ESP-CAM] Local IP Address: ");
   Serial.println(WiFi.localIP());
 
@@ -239,8 +249,12 @@ void loop() {
       }
     }
   } else {
-    // Retry connection if dropped
-    delay(3000);
-    connectToCloud();
+    // Retry connection if dropped (keeps checking Multi-WiFi)
+    if (wifiMulti.run() == WL_CONNECTED) {
+      delay(2000);
+      connectToCloud();
+    } else {
+      delay(500);
+    }
   }
 }
