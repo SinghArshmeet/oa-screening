@@ -15,15 +15,20 @@
 
 using namespace websockets;
 
-// ==========================================
+// ============================================================================
 // 1. Wi-Fi Multi-Network Setup (Auto-Switching)
-// ==========================================
+// Configure your primary and backup Wi-Fi credentials below.
+// The ESP32-CAM will scan and connect to whichever network is available.
+// NOTE: For mobile hotspots, ensure your phone's hotspot is set to 2.4 GHz!
+// ============================================================================
 WiFiMulti wifiMulti;
 
-// Add any networks here. The ESP32-CAM connects to whichever is available!
 void setupWiFiNetworks() {
-  wifiMulti.addAP("Paaji", "12345678");                           // Primary: Mobile Hotspot
-  wifiMulti.addAP("SEXY_PAAJI_KA_WIFI", "703sexypaajiskira");     // Secondary: Home / Lab Wi-Fi
+  // Primary: Mobile Hotspot or Expo Wi-Fi
+  wifiMulti.addAP("YOUR_PRIMARY_SSID", "YOUR_PRIMARY_PASSWORD");
+  
+  // Secondary: Home / Lab Backup Wi-Fi
+  wifiMulti.addAP("YOUR_BACKUP_SSID", "YOUR_BACKUP_PASSWORD");
 }
 
 // ==========================================
