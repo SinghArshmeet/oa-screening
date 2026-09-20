@@ -22,9 +22,8 @@ WiFiMulti wifiMulti;
 
 // Add any networks here. The ESP32-CAM connects to whichever is available!
 void setupWiFiNetworks() {
-  wifiMulti.addAP("SEXY_PAAJI_KA_WIFI", "703sexypaajiskira");     // Home / Lab Wi-Fi
-  wifiMulti.addAP("OrthoNex_Hotspot", "orthonex123");             // Mobile Hotspot (Expo Backup)
-  // wifiMulti.addAP("EXPO_VENUE_SSID", "expo_password");        // Add Expo Wi-Fi when known
+  wifiMulti.addAP("Paaji", "12345678");                           // Primary: Mobile Hotspot
+  wifiMulti.addAP("SEXY_PAAJI_KA_WIFI", "703sexypaajiskira");     // Secondary: Home / Lab Wi-Fi
 }
 
 // ==========================================
