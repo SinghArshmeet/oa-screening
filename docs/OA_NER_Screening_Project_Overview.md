@@ -1,175 +1,162 @@
-# OrthoNex India: Comprehensive Project Overview & Technical Revision
+# AI-Assisted OA Risk Screening System — Project Overview
+### North Eastern Region (NER) Deployment | Software-Only Architecture
 
 ---
 
-## 1. Executive Summary
+## 1. Project Summary
 
-**OrthoNex India** is an accessible, cyber-physical clinical screening system engineered to detect early functional and structural biomarkers of **Knee Osteoarthritis (KOA)** before irreversible joint destruction occurs.
+An affordable, fully software-based screening tool that helps identify possible **Osteoarthritis (OA) risk markers**, intended for regions like India's North Eastern Region where specialist healthcare and imaging access may be limited.
 
-Developed for community health camps, rural Primary Health Centers (PHCs), and post-operative tele-rehabilitation, OrthoNex replaces expensive, specialized 3D motion analysis laboratories ($>\$50,000$) with an **ultra-low-cost, battery-powered IoT camera tracking rig ($<\$25$)** coupled to markerless computer vision and machine learning.
-
-The platform directly integrates with the **Ayushman Bharat Digital Mission (ABDM)**, generating validated **ABHA Health IDs**, supporting **7 Indian regional languages**, factoring agrarian/occupational physical stresses (prolonged squatting, paddy lifting), and offering seamless tele-referral across 25 leading tertiary orthopedic hospitals in India.
+The system is a **screening and referral aid**, not a diagnostic device. It never claims to replace a doctor or deliver a clinical diagnosis — its job is to flag people who may benefit from further clinical evaluation.
 
 ---
 
-## 2. Core Clinical Principle: Early Risk Stratification
+## 2. Core Principle
 
-> **Frontline Screening & Risk Marker Identification — Not Autonomous Diagnosis.**
+> **AI-Assisted Screening and Risk Marker Detection** — not diagnosis.
 
-Every clinical output produced by OrthoNex is framed as an objective functional risk assessment with actionable recommendations (e.g. *Screen Negative / Low Risk* vs *Screen Positive / Antalgic Asymmetry — Orthopedic Consultation Recommended*). It serves as a force multiplier for frontline healthcare workers (ASHA/ANM workers, physiotherapists, primary medical officers) to triage high-risk patients who require formal radiographic confirmation.
+Every output must be framed as a risk indication with a recommendation (e.g. *"clinical evaluation recommended"*), never as a medical finding.
 
 ---
 
-## 3. Multimodal Diagnostic Triad
+## 3. System Inputs — Three Independent Modules
 
-OrthoNex fuses three independent, complementary clinical pillars into a unified diagnostic dossier:
+The system combines up to three input sources. Each can work **standalone** — a clinic without an X-ray machine still gets a useful result from movement + questionnaire alone, and vice versa.
+
+| Module | Input | Output |
+|---|---|---|
+| **Movement Analysis** | Webcam video of sit-to-stand, short walk, standing posture | Gait/mobility risk score |
+| **Patient Questionnaire** | Age, pain level, stiffness, injury history, activity level | Symptom-based risk score |
+| **X-ray Analysis** (optional) | Uploaded knee X-ray image | KL Grade prediction → risk score |
+
+---
+
+## 4. Architecture
 
 ```
-                          ORTHONEX MULTIMODAL DIAGNOSTIC TRIAD
-  ┌──────────────────────────────────────────────────────────────────────────────────┐
-  │                                                                                  │
-  │     [ PILLAR 1: GAIT BIOMECHANICS ]          [ PILLAR 2: CLINICAL INTAKE ]       │
-  │     - 2D/3D Sagittal Joint Kinematics        - KOOS-India 40-Point Assessment    │
-  │     - Real-Time Knee Flexion/Extension       - VAS Pain (0-10) & Morning Stiff.  │
-  │     - FFT-Based Spectral Cadence             - Agrarian & Sedentary Stress Index │
-  │     - Antalgic Limp Asymmetry Index          - ABDM ABHA ID (91-XXXX-XXXX-XXXX)  │
-  │                           │                                    │                 │
-  │                           └──────────────────┬─────────────────┘                 │
-  │                                              │                                   │
-  │                                              ▼                                   │
-  │                             [ MULTIMODAL RISK FUSION ENGINE ]                    │
-  │                             - 82.7% Clinical Accuracy (OAI)                      │
-  │                             - 0.871 ROC-AUC Discriminative Power                 │
-  │                             - Dual-Tier & 4-Stage Severity Triage                │
-  │                                              │                                   │
-  │                                              ▲                                   │
-  │                                              │                                   │
-  │                                [ PILLAR 3: X-RAY STAGING ]                       │
-  │                                - Kellgren-Lawrence (KL 0-4) Grade                │
-  │                                - Deep Learning Articular Attention               │
-  │                                - Grad-CAM Joint Space Narrowing Map              │
-  │                                                                                  │
-  └──────────────────────────────────────────────────────────────────────────────────┘
+                        ┌─────────────────┐
+                        │   Desktop App    │
+                        │  (offline, local)│
+                        └────────┬─────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                         │
+  Movement Test           Questionnaire              X-ray Upload
+  (webcam capture)        (form input)               (image file)
+        │                        │                         │
+  MediaPipe Pose            Feature vector          Preprocessing +
+  Estimation                (age, pain, etc.)        Knee ROI crop
+        │                        │                         │
+  Feature Extraction:            │                   CNN (ResNet/
+  knee angle, symmetry,          │                   EfficientNet,
+  gait speed, sit-to-                                transfer-learned
+  stand timing                   │                   on OAI dataset)
+        │                        │                         │
+  Random Forest /          Random Forest /            KL Grade (0–4)
+  XGBoost model             Logistic Regression        + Grad-CAM
+        │                        │                         │
+        └──────────┬─────────────┴─────────────┬──────────┘
+                    │                            │
+              Ensemble / Late Fusion      (or standalone if
+              of available scores          only one input given)
+                    │
+                    ▼
+         Risk Category: Low / Moderate / High
+                    │
+                    ▼
+      Recommendation: Monitor / Preventive Guidance /
+                Clinical Evaluation Recommended
 ```
 
----
-
-## 4. Validated Empirical Accuracy & Benchmarks
-
-The diagnostic machine learning pipelines are trained and validated on the **NIH Osteoarthritis Initiative (OAI) longitudinal cohort ($N = 9,580$ patient knees)**, published in *PLOS ONE* (pone.0325678, 2025):
-
-| Metric | Measured Value | Clinical Significance |
-|:---|:---:|:---|
-| **Diagnostic Accuracy** | **`82.7%`** | Statistically validated classification of normal vs. osteoarthritic knees |
-| **ROC-AUC (Discriminative Power)** | **`0.871`** | High area under the curve across early vs. moderate OA tiers |
-| **OA Pain Precision** | **`89.4%`** | High positive predictive value for true symptomatic joint degeneration |
-| **OA Pain Sensitivity (Recall)** | **`85.9%`** | Extremely low false-negative rate, capturing subtle functional decline |
-| **F1-Score** | **`82.9%`** | Robust harmonic mean between precision and recall |
-| **Optical Joint Angle Accuracy** | **`±2.5°`** | Validated against physical clinical goniometers in sagittal perspective |
-| **Cloud Video Latency** | **`< 120 ms`** | Real-time optical video relay across outbound WebSockets |
+**Key design decision:** the movement and questionnaire scores stay independently visible (not silently merged into one number) so a healthcare worker can see *why* a result was flagged — e.g. "movement: moderate, questionnaire: high."
 
 ---
 
-## 5. Mathematical & Algorithmic Formulations
+## 5. Technology Stack
 
-### A. 3-Point Vector Euclidean Knee Flexion Angle
-For every sampled video frame, MediaPipe BlazePose extracts 3D anatomical landmark vectors for Hip ($H$), Knee ($K$), and Ankle ($A$):
-$$\vec{v}_{\text{thigh}} = H - K, \quad \vec{v}_{\text{shank}} = A - K$$
-$$\theta_{\text{knee}} = \arccos\left(\frac{\vec{v}_{\text{thigh}} \cdot \vec{v}_{\text{shank}}}{\|\vec{v}_{\text{thigh}}\| \|\vec{v}_{\text{shank}}\|}\right) \times \frac{180}{\pi}$$
+| Layer | Choice | Why |
+|---|---|---|
+| Language | Python | Matches CV/ML ecosystem, single stack throughout |
+| Computer Vision | OpenCV | Video capture, preprocessing |
+| Pose Estimation | MediaPipe | Lightweight, runs on CPU, well-documented |
+| Movement/Questionnaire ML | Random Forest / XGBoost (ensemble) | Small datasets (tens–hundreds of subjects) — classical ML avoids overfitting; keeps explainability via feature importance |
+| X-ray ML | CNN (ResNet-18/34 or EfficientNet-B0, transfer learning) | Large labeled dataset (OAI, ~47,000 X-rays) supports deep learning; matches published benchmarks |
+| Explainability | Grad-CAM (X-ray module) | Shows *where* the model is focusing, builds trust |
+| UI / App Shell | Streamlit or PyQt | Desktop app, fully offline, no server dependency |
 
-### B. Antalgic Limp Asymmetry Index
-Patients suffering from unilateral knee OA instinctively shorten the stance phase on their painful limb to avoid compressive loading. OrthoNex quantifies this compensatory deviation:
-$$\text{ROM}_{\text{Left}} = \theta_{\text{L, max}} - \theta_{\text{L, min}}, \quad \text{ROM}_{\text{Right}} = \theta_{\text{R, max}} - \theta_{\text{R, min}}$$
-$$\text{Asymmetry Index} = |\text{ROM}_{\text{Left}} - \text{ROM}_{\text{Right}}|$$
-*Values exceeding $8.0^\circ$ strongly correlate with Kellgren-Lawrence Grade $\ge 2$ radiographic OA.*
-
-### C. Fast Fourier Transform (FFT) Spectral Cadence
-Rather than estimating foot strikes from noisy floor contact approximations, OrthoNex applies a Fast Fourier Transform across the knee flexion trajectory:
-$$S(f) = \left|\sum_{n=0}^{N-1} (\theta[n] - \bar{\theta}) e^{-j 2\pi f n / f_s}\right|$$
-The peak frequency in the physiological gait band ($0.25\text{ Hz} \le f \le 2.5\text{ Hz}$) multiplied by $60$ yields the true **Cadence in Cycles Per Minute (CPM)**.
+**No hardware component** — the system runs on whatever laptop/PC is already available. "Portable" means the software runs anywhere, not that dedicated hardware is built or shipped.
 
 ---
 
-## 6. Cyber-Physical Hardware Architecture (< $25 Total BOM)
+## 6. Datasets Identified
 
-The OrthoNex screening station includes a specialized physical tracking rig:
+| Dataset | Use | Notes |
+|---|---|---|
+| **KOA-PD-NM Gait Dataset** (Kour, Gupta, Arora, 2020 — Mendeley/Zenodo, CC BY 4.0) | Movement/gait model training & validation | 50 KOA patients (early/moderate/severe) + healthy controls, sagittal-plane video, already used with MediaPipe in published research |
+| **VidSole** (2025) | Future sensor-fusion reference | 52 subjects, RGB + insole + motion capture; useful if IMU is reconsidered later |
+| **OAI (Osteoarthritis Initiative)** | X-ray model training | ~4,796 participants, ~47,000 KL-graded radiographs; free, requires registration |
+| **Pre-cropped KL-graded derivative sets** (Mendeley/Kaggle) | Faster X-ray prototyping | Skips joint-detection/cropping step |
 
-```
-                            2S LiPo Battery (~7.4V)
-                           ┌───────────────────────┐
-                           │               (+) RED ├───[ Toggle Switch ]───┬──────────────────────────┐
-                           │                       │                       │                          │
-                           │             (–) BLACK ├───┬───────────────────┼──────────────────────────┼───────────────┐
-                           └───────────────────────┘   │                   │                          │               │
-                                                       │                   ▼                          │               │
-                                                       │        ┌─────────────────────┐               │               │
-                                                       │        │   L7805CV Regulator │               │               │
-                                                       │        │  Pin 1: IN (+7.4V)  │               │               │
-                                                       │        │  Pin 2: GND         │               │               │
-                                                       │        │  Pin 3: OUT (+5.0V) │               │               │
-                                                       │        └──────────┬──────────┘               │               │
-                                                       │                   │                          │               │
-                                                       │            [+5V Power Rail]                  │               │
-                                                       │                   │                          │               │
-                                                       │                 ┌─┴─┐                        │               │
-                                                       │                 │ + │ 220 µF                 │               │
-                                                       │                 │   │ Decoupling             │               │
-                                                       │                 │ - │ Capacitor              │               │
-                                                       │                 └─┬─┘                        │               │
-                                                       ▼                   ▼                          ▼               │
-                         COMMON GND RAIL ──────────────┴───────────────────┴──────────────────────────┴───────────────┤
-                                  │                                                                   │               │
-           ┌──────────────────────┴──────────────────────┬────────────────────────────────────────────┤               │
-           │                                             │                                            │               │
-           ▼                                             ▼                                            ▼               │
-┌──────────────────────────────┐              ┌──────────────────────┐                     ┌──────────────────────┐   │
-│     AI-Thinker ESP32-CAM     │              │   SG90 Servo Motor   │                     │  Arduino Nano (MCU)  │   │
-│                              │              │                      │                     │                      │   │
-│ 5V Pin  ◄────────────────────┼──────────────┤ RED   (5V Power)     │                     │ 5V Pin (5V Power)    │◄──┘
-│ GND Pin ◄────────────────────┤              │ BLACK (Common GND)   │◄────────────────────┤ GND Pin (Common GND) │
-│                              │              │                      │                     │                      │
-│ [OV2640/OV3660 LENS]         │              │ ORANGE (PWM Signal)  │◄────────────────────┤ Pin D9 (Servo PWM)   │
-│ 640x480 VGA @ 25 FPS Stream  │              └──────────────────────┘                     │                      │
-│ Outbound TLS WebSockets      │                                                           │ Pin A0 (Analog Wiper)│◄──┐
-└──────────────────────────────┘                                                           │ 5V Ref Out           │──┐│
-                                                                                           │ GND Ref Out          │─┐││
-                                                                                           └──────────────────────┘ │││
-                                                                                                                    │││
-                                                                                           ┌──────────────────────┐ │││
-                                                                                           │  B10k Potentiometer  │ │││
-                                                                                           │                      │ │││
-                                                                                           │ Leg 3: +5V Rail      │◄─┘│
-                                                                                           │ Leg 1: GND Rail      │◄──┘
-                                                                                           │ Leg 2: Center Wiper  │───┘
-                                                                                           └──────────────────────┘
-```
-
-### Key Engineering Safeguards:
-1. **Zero Brownouts:** Servo inductive inrush current is buffered by a **$220\ \mu\text{F}$ electrolytic capacitor** placed directly across the 5V and GND rails.
-2. **Common Ground:** Solidified across Battery (–), L7805CV GND, ESP32-CAM GND, Arduino Nano GND, Servo Black, and Potentiometer Leg 1.
-3. **Dedicated Microcontrollers:** The ESP32-CAM runs **only video streaming** over Wi-Fi, completely preventing timer collisions with the camera clock (`LEDC_TIMER_0`). The Arduino Nano runs **only servo PWM** and potentiometer tracking.
-4. **Multi-WiFi Fail-Safe:** The firmware incorporates `WiFiMulti` with automatic failover between primary mobile phone hotspots (2.4 GHz) and backup facility Wi-Fi.
+**Known gap:** none of these datasets are NER-specific. A small local validation cohort (even 20–30 subjects, assessed by a physiotherapist) is recommended before claiming generalizability to the target population.
 
 ---
 
-## 7. Technology Stack Summary
+## 7. Movement Tests Selected
 
-| Layer | Component | Function |
-|:---|:---|:---|
-| **IoT Hardware** | AI-Thinker ESP32-CAM | 240MHz dual-core SoC with 4MB PSRAM, OV2640/OV3660 lens |
-| **Rig Actuation** | Arduino Nano + SG90 | 10-bit ADC reading B10k pot, outputting 50Hz PWM to servo |
-| **Power Stage** | 2S LiPo + L7805CV + 220µF | Stable 5.00V output with inductive spike suppression |
-| **Cloud Relay** | FastAPI + WebSockets (Render) | Outbound TLS WSS relay (`/api/esp/ws/camera`), zero port-forwarding |
-| **Frontend Web** | React 18 + Vite (Vercel) | Real-time gait HUD, 4-stage clinical stepper, responsive canvas |
-| **Pose Engine** | Google MediaPipe BlazePose | 33 3D skeletal landmarks at sub-pixel accuracy |
-| **ML Models** | Scikit-Learn / Joblib | Trained Random Forest & clinical logistic regression pipelines |
-| **Explainability**| Grad-CAM | Articular joint space attention heatmaps on knee radiographs |
-| **National EHR** | ABDM / ABHA ID | 14-digit Ayushman Bharat health account generation and validation |
+Chosen for clinical relevance *and* safety (low fall/injury risk):
+
+1. **Sit-to-stand** (5x or 30-second variant) — validated functional mobility measure
+2. **Short timed walk** (~4–10m) — standard gait speed test
+3. **Standing posture / static balance**
+
+Deep squats/knee bending are avoided or made optional — safety risk outweighs the marginal data value for a screening tool.
 
 ---
 
-## 8. Live Production Endpoints
+## 8. Risk Scoring Approach
 
-* 🌐 **Web Application:** [https://orthonex.vercel.app](https://orthonex.vercel.app)
-* 📡 **Cloud WebSocket Relay:** [https://oa-ner-screening.onrender.com](https://oa-ner-screening.onrender.com)
-* 🗂️ **GitHub Repository:** [https://github.com/SinghArshmeet/oa-ner-screening](https://github.com/SinghArshmeet/oa-ner-screening)
+- **Phase 1 (MVP):** Late-fusion ensemble — separate Random Forest models for movement and questionnaire features, combined by voting/averaging, with a transparent rule-based score running alongside as a sanity check.
+- **X-ray module:** Independent CNN output mapped to a risk category, combinable with the other two scores or usable standalone.
+- **Not used at this stage:** deep learning on the movement/questionnaire side (data too small), or multimodal deep fusion architectures (premature before sufficient data volume).
+
+---
+
+## 9. Validation Methodology
+
+1. **Reproduce first:** validate the pose-estimation + classical ML pipeline against KOA-PD-NM's existing severity labels before any new data collection.
+2. **Clinical ground truth:** partner with a physiotherapist/orthopedic clinician to assess a small validation cohort using an established scale (WOMAC index or KL grade).
+3. **Track real metrics:** sensitivity/specificity against labeled outcomes — not just "the demo works."
+
+---
+
+## 10. MVP Build Order
+
+1. **Pipeline validation on public data** — run KOA-PD-NM through MediaPipe, extract features, confirm reproducible results before building anything new.
+2. **Feature engineering + classical ML baseline** — joint angle, symmetry, sit-to-stand timing → Random Forest baseline.
+3. **Questionnaire module + rule-based fallback score.**
+4. **Webcam MVP application** — desktop app wiring camera + questionnaire into one working tool with Low/Moderate/High output.
+5. **Local pilot validation** — test against a clinician's informal assessment.
+6. **X-ray module** (parallel/later track) — CNN trained on OAI, added as a third input tab.
+
+*(Hardware-porting step removed — project is software-only.)*
+
+---
+
+## 11. Open Considerations
+
+- **Fixed test protocol:** camera distance/angle and movement sequence must be standardized before data collection — pose-estimation accuracy is sensitive to setup, more so than model choice.
+- **Regulatory awareness:** India's CDSCO has rules around AI-based screening/medical software. Not a blocker at prototype/college-project stage, but worth knowing before any real-world pilot or deployment beyond that.
+- **Framing discipline:** the X-ray module in particular sits closer to "diagnostic" territory (KL grading is a real diagnostic measure) — keep output language as risk/referral, never diagnosis, even here.
+
+---
+
+## 12. Key Questions Resolved So Far
+
+| Original Question | Resolution |
+|---|---|
+| Realistic RGB camera risk markers? | Functional/mobility markers yes (angle, gait, symmetry); structural markers (joint space, osteophytes) no — X-ray needed for those |
+| Suitable public datasets? | Yes — KOA-PD-NM (gait), OAI (X-ray) |
+| Clinically meaningful, safe movement tests? | Sit-to-stand, timed walk, standing posture |
+| Camera-only or IMU? | Camera-only, permanently (hardware removed from scope) |
+| How to combine questionnaire + movement? | Late-fusion ensemble, kept independently visible |
+| How to validate? | Reproduce on public labels first, then clinician-assessed local cohort |
