@@ -323,7 +323,9 @@ async def google_callback(code: str | None = None, state: str | None = None, err
     conn.commit()
     conn.close()
     response = RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_success=1")
-    response.set_cookie("oa_session", _create_session(user_id), max_age=SESSION_MAX_AGE_SECONDS, httponly=True, secure=COOKIE_SECURE, samesite="lax", path="/")
+    # Use SameSite=None if Secure is True (required for cross-origin cookie sharing between Vercel and Render)
+    samesite_policy = "none" if COOKIE_SECURE else "lax"
+    response.set_cookie("oa_session", _create_session(user_id), max_age=SESSION_MAX_AGE_SECONDS, httponly=True, secure=COOKIE_SECURE, samesite=samesite_policy, path="/")
     return response
 
 
