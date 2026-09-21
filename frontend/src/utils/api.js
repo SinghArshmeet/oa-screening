@@ -353,7 +353,8 @@ export async function getPatients(currentUser = null) {
           combinedRisk: 'moderate',
           consent: Boolean(p.consent)
         }));
-        return backendMapped;
+          // Apply role-based filtering on the frontend to guarantee data scoping
+          return getPatientsForRole(currentUser, backendMapped);
       }
     }
   } catch (error) {

@@ -51,8 +51,12 @@ export default function App() {
     let isMounted = true;
     const params = new URLSearchParams(window.location.search);
     const hasAuthSuccess = params.get('auth_success');
+    const authError = params.get('auth_error');
 
-    if (hasAuthSuccess) {
+    if (hasAuthSuccess || authError) {
+      if (authError) {
+        alert('Google Authentication Error: ' + authError);
+      }
       // Clean query params from URL bar without reload
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -60,7 +64,12 @@ export default function App() {
     // Attempt to resolve active session from backend cookie
     fetchServerUserProfile().then((serverUser) => {
       if (isMounted && serverUser) {
-        setCurrentUser(serverUser);
+        const stored = getStoredUser();
+        if (stored && stored.id === serverUser.id && stored.profileCompleted) {
+          setCurrentUser({ ...serverUser, ...stored });
+        } else {
+          setCurrentUser(serverUser);
+        }
       }
     });
 
@@ -327,7 +336,8 @@ export default function App() {
   }
 
   // Profile completion check for Google auth users (or incomplete mocked profiles)
-  if (!currentUser.roleId || !currentUser.station) {
+  const isGoogleUser = currentUser?.id?.startsWith('NER-GOOG');
+  if (!currentUser.roleId || !currentUser.station || (isGoogleUser && !currentUser.profileCompleted)) {
     return <CompleteProfileView currentUser={currentUser} onComplete={handleLogin} />;
   }
 
