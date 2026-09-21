@@ -10,6 +10,7 @@ import QuestionnaireView from './views/QuestionnaireView';
 import DiagnosticReportView from './views/DiagnosticReportView';
 import PatientsCohortView from './views/PatientsCohortView';
 import HardwareFleetView from './views/HardwareFleetView';
+import CompleteProfileView from './views/CompleteProfileView';
 
 import LoginView from './views/LoginView';
 import { checkBackendHealth, getPatients, createPatient, saveScreening, getLatestScreening } from './utils/api';
@@ -323,6 +324,11 @@ export default function App() {
   // Route protection: If unauthenticated, render clinical login portal
   if (!currentUser) {
     return <LoginView onLogin={handleLogin} />;
+  }
+
+  // Profile completion check for Google auth users (or incomplete mocked profiles)
+  if (!currentUser.roleId || !currentUser.station) {
+    return <CompleteProfileView currentUser={currentUser} onComplete={handleLogin} />;
   }
 
   return (
