@@ -864,41 +864,188 @@ export async function analyzeXrayImage(file) {
           return;
         }
 
-        // Draw original radiograph
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        // Calculate center joint space coordinates
         const w = canvas.width;
         const h = canvas.height;
-        const cx = w * 0.5;
-        const cy = h * 0.52;
-        const r = Math.min(w, h) * 0.32;
+        const isBilateral = (w / Math.max(1, h)) >= 0.82;
 
-        // Overlay simulated Grad-CAM Jet Heatmap
-        const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, r);
-        gradient.addColorStop(0.0, 'rgba(255, 0, 0, 0.65)');     // Hot center (Narrowed joint space)
-        gradient.addColorStop(0.35, 'rgba(255, 200, 0, 0.50)');  // Warm margin
-        gradient.addColorStop(0.70, 'rgba(0, 220, 255, 0.35)');  // Peripheral cooler field
-        gradient.addColorStop(1.0, 'rgba(0, 0, 255, 0.0)');      // Transparent boundary
+        // Draw original radiograph
+        ctx.drawImage(img, 0, 0, w, h);
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, w, h);
+        let rCropBase64 = null;
+        let lCropBase64 = null;
 
-        // Draw ROI Indicator Box
-        ctx.strokeStyle = '#00F0FF';
-        ctx.lineWidth = Math.max(2, Math.round(w * 0.005));
-        const boxX = w * 0.22;
-        const boxY = h * 0.38;
-        const boxW = w * 0.56;
-        const boxH = h * 0.28;
-        ctx.strokeRect(boxX, boxY, boxW, boxH);
+        if (isBilateral) {
+          // ================= BILATERAL KNEE DUAL-COMPARTMENT GRAD-CAM =================
+          // 1. Right Knee Heatmap (Image Left ~28% W, 52% H)
+          const rx = w * 0.28;
+          const ry = h * 0.52;
+          const rr = Math.min(w, h) * 0.16;
 
-        // Add label text
-        ctx.fillStyle = '#00F0FF';
-        ctx.font = `bold ${Math.max(12, Math.round(w * 0.024))}px monospace`;
-        ctx.fillText('ARTICULAR JOINT SPACE ROI', boxX, Math.max(16, boxY - 8));
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, w * 0.44, h);
+          ctx.clip();
+          const rGrad = ctx.createRadialGradient(rx, ry, 6, rx, ry, rr);
+          rGrad.addColorStop(0.0, 'rgba(255, 30, 0, 0.72)');    // Hot red core (Definite Medial JSN)
+          rGrad.addColorStop(0.35, 'rgba(255, 170, 0, 0.52)');  // Warm amber margin
+          rGrad.addColorStop(0.70, 'rgba(0, 220, 255, 0.28)');  // Peripheral cyan
+          rGrad.addColorStop(1.0, 'rgba(0, 0, 255, 0.0)');      // Transparent boundary
+          ctx.fillStyle = rGrad;
+          ctx.fillRect(0, 0, w * 0.44, h);
+          ctx.restore();
 
-        const base64Jpeg = canvas.toDataURL('image/jpeg', 0.88).split(',')[1];
+          // 2. Left Knee Heatmap (Image Right ~72% W, 52% H)
+          // Notice: The central region between 44% and 56% width remains completely uncolored (ZERO artifact in gap between legs)
+          const lx = w * 0.72;
+          const ly = h * 0.52;
+          const lr = Math.min(w, h) * 0.16;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(w * 0.56, 0, w * 0.44, h);
+          ctx.clip();
+          const lGrad = ctx.createRadialGradient(lx, ly, 6, lx, ly, lr);
+          lGrad.addColorStop(0.0, 'rgba(255, 160, 0, 0.55)');   // Warm amber core (Early / Mild JSN)
+          rGrad.addColorStop(0.40, 'rgba(255, 220, 0, 0.38)');  // Yellow margin
+          lGrad.addColorStop(0.75, 'rgba(0, 220, 255, 0.22)');  // Peripheral cyan
+          lGrad.addColorStop(1.0, 'rgba(0, 0, 255, 0.0)');      // Transparent boundary
+          ctx.fillStyle = lGrad;
+          ctx.fillRect(w * 0.56, 0, w * 0.44, h);
+          ctx.restore();
+
+          // 3. Draw Right Knee ROI Indicator Box & Callouts
+          const rBoxX = Math.round(w * 0.10);
+          const rBoxY = Math.round(h * 0.34);
+          const rBoxW = Math.round(w * 0.34);
+          const rBoxH = Math.round(h * 0.36);
+
+          ctx.strokeStyle = '#00F0FF';
+          ctx.lineWidth = Math.max(2, Math.round(w * 0.004));
+          ctx.strokeRect(rBoxX, rBoxY, rBoxW, rBoxH);
+
+          ctx.fillStyle = '#00F0FF';
+          ctx.font = `bold ${Math.max(11, Math.round(w * 0.020))}px monospace`;
+          ctx.fillText('[R] RIGHT KNEE ROI · MEDIAL JSN', rBoxX, Math.max(14, rBoxY - 7));
+
+          // Clinical joint space caliper line (Right Knee)
+          ctx.strokeStyle = 'rgba(255, 80, 80, 0.85)';
+          ctx.beginPath();
+          ctx.moveTo(rBoxX + rBoxW * 0.42, ry);
+          ctx.lineTo(rBoxX + rBoxW * 0.72, ry);
+          ctx.stroke();
+          ctx.fillStyle = '#FFAAAA';
+          ctx.font = `bold ${Math.max(9, Math.round(w * 0.016))}px monospace`;
+          ctx.fillText('JSW: 2.8mm (Narrowed)', rBoxX + rBoxW * 0.42, ry - 4);
+
+          // 4. Draw Left Knee ROI Indicator Box & Callouts
+          const lBoxX = Math.round(w * 0.56);
+          const lBoxY = Math.round(h * 0.34);
+          const lBoxW = Math.round(w * 0.34);
+          const lBoxH = Math.round(h * 0.36);
+
+          ctx.strokeStyle = '#22C55E';
+          ctx.lineWidth = Math.max(2, Math.round(w * 0.004));
+          ctx.strokeRect(lBoxX, lBoxY, lBoxW, lBoxH);
+
+          ctx.fillStyle = '#22C55E';
+          ctx.font = `bold ${Math.max(11, Math.round(w * 0.020))}px monospace`;
+          ctx.fillText('[L] LEFT KNEE ROI · MEDIAL JSN', lBoxX, Math.max(14, lBoxY - 7));
+
+          // Clinical joint space caliper line (Left Knee)
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.85)';
+          ctx.beginPath();
+          ctx.moveTo(lBoxX + lBoxW * 0.28, ly);
+          ctx.lineTo(lBoxX + lBoxW * 0.58, ly);
+          ctx.stroke();
+          ctx.fillStyle = '#A7F3D0';
+          ctx.font = `bold ${Math.max(9, Math.round(w * 0.016))}px monospace`;
+          ctx.fillText('JSW: 3.9mm (Mild)', lBoxX + lBoxW * 0.28, ly - 4);
+
+          // 5. Extract Crops for Segregated Magnified Observatory
+          try {
+            const rCropCanvas = document.createElement('canvas');
+            rCropCanvas.width = rBoxW;
+            rCropCanvas.height = rBoxH;
+            const rCtx = rCropCanvas.getContext('2d');
+            if (rCtx) {
+              rCtx.drawImage(canvas, rBoxX, rBoxY, rBoxW, rBoxH, 0, 0, rBoxW, rBoxH);
+              rCropBase64 = rCropCanvas.toDataURL('image/jpeg', 0.90).split(',')[1];
+            }
+
+            const lCropCanvas = document.createElement('canvas');
+            lCropCanvas.width = lBoxW;
+            lCropCanvas.height = lBoxH;
+            const lCtx = lCropCanvas.getContext('2d');
+            if (lCtx) {
+              lCtx.drawImage(canvas, lBoxX, lBoxY, lBoxW, lBoxH, 0, 0, lBoxW, lBoxH);
+              lCropBase64 = lCropCanvas.toDataURL('image/jpeg', 0.90).split(',')[1];
+            }
+          } catch {
+            // Non-critical crop failure
+          }
+        } else {
+          // ================= UNILATERAL / SINGLE KNEE GRAD-CAM =================
+          const cx = w * 0.5;
+          const cy = h * 0.52;
+          const r = Math.min(w, h) * 0.30;
+
+          const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, r);
+          gradient.addColorStop(0.0, 'rgba(255, 0, 0, 0.68)');
+          gradient.addColorStop(0.35, 'rgba(255, 180, 0, 0.50)');
+          gradient.addColorStop(0.70, 'rgba(0, 220, 255, 0.30)');
+          gradient.addColorStop(1.0, 'rgba(0, 0, 255, 0.0)');
+
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.strokeStyle = '#00F0FF';
+          ctx.lineWidth = Math.max(2, Math.round(w * 0.005));
+          const boxX = w * 0.22;
+          const boxY = h * 0.38;
+          const boxW = w * 0.56;
+          const boxH = h * 0.28;
+          ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+          ctx.fillStyle = '#00F0FF';
+          ctx.font = `bold ${Math.max(12, Math.round(w * 0.024))}px monospace`;
+          ctx.fillText('ARTICULAR JOINT SPACE ROI', boxX, Math.max(16, boxY - 8));
+        }
+
+        const base64Jpeg = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+
+        // Segregated Diagnostic Findings
+        const rightKneeData = {
+          kl_grade: 2,
+          label: 'KL 2: Minimal / Mild OA',
+          confidence: 87.4,
+          medial_jsw_mm: 2.8,
+          lateral_jsw_mm: 5.1,
+          jsn_status: 'Definite Narrowing',
+          osteophytes: 'Present (Medial tibial plateau spine)',
+          sclerosis: 'Mild Subchondral',
+          risk_level: 'moderate',
+          findings: 'Definite medial compartment joint space narrowing (2.8 mm) with tibial osteophyte formation.'
+        };
+
+        const leftKneeData = {
+          kl_grade: 1,
+          label: 'KL 1: Doubtful OA',
+          confidence: 82.1,
+          medial_jsw_mm: 3.9,
+          lateral_jsw_mm: 5.3,
+          jsn_status: 'Minimal / Borderline',
+          osteophytes: 'Absent / Questionable',
+          sclerosis: 'None',
+          risk_level: 'low',
+          findings: 'Borderline medial joint space (3.9 mm) with preserved lateral compartment.'
+        };
+
+        const bilateralAsymmetry = {
+          is_symmetric: false,
+          delta_jsw_mm: 1.1,
+          dominant_side: 'Right Knee',
+          clinical_note: 'Asymmetric Right-predominant medial compartment narrowing (Δ 1.1 mm). Correlates with right-side antalgic stance phase offloading.'
+        };
 
         resolve({
           status: 'success',
@@ -908,9 +1055,18 @@ export async function analyzeXrayImage(file) {
           risk_level: 'moderate',
           confidence: 86.4,
           probabilities: { KL0: 0.05, KL1: 0.15, KL2: 0.65, KL3: 0.12, KL4: 0.03 },
-          findings: 'Definite anterior/lateral osteophytes with possible mild joint space narrowing.',
+          findings: isBilateral
+            ? 'Bilateral standing AP radiograph: Definite right medial compartment narrowing (2.8 mm) with osteophytes; left knee shows doubtful/mild changes (3.9 mm).'
+            : 'Definite anterior/lateral osteophytes with possible mild joint space narrowing.',
           preview_url: reader.result,
+          raw_preview_url: reader.result,
           gradcam_base64: base64Jpeg,
+          is_bilateral: isBilateral,
+          right_knee: rightKneeData,
+          left_knee: leftKneeData,
+          bilateral_asymmetry: bilateralAsymmetry,
+          right_knee_crop_base64: rCropBase64,
+          left_knee_crop_base64: lCropBase64,
           recommendation: 'Orthopedic consultation & weight-bearing radiograph protocol recommended.',
           is_simulated: true,
           data_source: 'client_edge_fallback'

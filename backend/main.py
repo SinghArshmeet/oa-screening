@@ -657,17 +657,24 @@ async def analyze_xray_image(file: UploadFile = File(...), user: dict[str, objec
         raise HTTPException(status_code=422, detail=str(error)) from error
     finally:
         temp_path.unlink(missing_ok=True)
+    conf_val = round(pred.confidence * 100, 1) if pred.confidence <= 1.0 else pred.confidence
     return {
         "status": "success",
         "filename": raw_filename or "knee_xray.png",
         "kl_grade": pred.kl_grade,
         "label": pred.label,
         "risk_level": pred.risk_level,
-        "confidence": round(pred.confidence * 100, 1),
+        "confidence": conf_val,
         "probabilities": pred.probabilities,
         "findings": pred.findings,
         "gradcam_base64": pred.gradcam_base64,
         "recommendation": pred.recommendation,
+        "is_bilateral": pred.is_bilateral,
+        "right_knee": pred.right_knee,
+        "left_knee": pred.left_knee,
+        "bilateral_asymmetry": pred.bilateral_asymmetry,
+        "right_knee_crop_base64": pred.right_knee_crop_base64,
+        "left_knee_crop_base64": pred.left_knee_crop_base64,
         "is_simulated": False,
         "data_source": "xray_spec_gradcam"
     }

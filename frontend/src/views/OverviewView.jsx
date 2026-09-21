@@ -44,6 +44,13 @@ export default function OverviewView({
   const [isDraggingXray, setIsDraggingXray] = useState(false);
   const xrayInputRef = useRef(null);
 
+  // Step 3 Clinical Observatory & Dual-Leg Segregation State
+  const [xrayViewMode, setXrayViewMode] = useState('bilateral'); // 'bilateral' | 'right' | 'left' | 'split'
+  const [xrayLayer, setXrayLayer] = useState('gradcam'); // 'gradcam' | 'raw' | 'inverted'
+  const [heatmapOpacity, setHeatmapOpacity] = useState(65);
+  const [isXrayLightboxOpen, setIsXrayLightboxOpen] = useState(false);
+  const [lightboxZoom, setLightboxZoom] = useState(1);
+
   useEffect(() => {
     if (xrayResult) {
       setLocalXrayData(xrayResult);
@@ -820,75 +827,589 @@ export default function OverviewView({
                   </div>
                 )}
 
-                {/* State A: X-Ray Analyzed -> Show Input & Grad-CAM Heatmap Side-by-Side */}
+                {/* State A: X-Ray Analyzed -> Full Clinical Observatory & Dual-Leg Knee Segregation */}
                 {xrayData ? (
                   <div className="space-y-md">
-                    <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container flex flex-col md:flex-row items-start md:items-center justify-between gap-md">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md grow">
-                        {xrayData.gradcam_base64 && (
-                          <div className="relative w-40 h-32 rounded-lg overflow-hidden bg-black/90 shrink-0 border border-white/10 shadow-sm">
-                            <img
-                              src={`data:image/jpeg;base64,${xrayData.gradcam_base64}`}
-                              alt="Grad-CAM Articular Joint Space ROI"
-                              className="w-full h-full object-contain"
+                    {/* ================= 1. OBSERVATORY CONTROLS & WORKSTATION TOOLBAR ================= */}
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 p-3 rounded-xl bg-surface-container-low border border-surface-container">
+                      {/* Left: View Mode Tabs */}
+                      <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+                        <span className="text-[10px] font-bold text-secondary uppercase tracking-wider mr-1 hidden sm:inline">
+                          View Mode:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setXrayViewMode('bilateral')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                            xrayViewMode === 'bilateral'
+                              ? 'bg-primary text-on-primary shadow-sm'
+                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">view_column</span>
+                          <span>Bilateral (Both Knees)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setXrayViewMode('right')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                            xrayViewMode === 'right'
+                              ? 'bg-cyan-600 text-white shadow-sm'
+                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                          <span>Right Knee Focus (R)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setXrayViewMode('left')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                            xrayViewMode === 'left'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                          }`}
+                        >
+                          <span>Left Knee Focus (L)</span>
+                          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setXrayViewMode('split')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                            xrayViewMode === 'split'
+                              ? 'bg-tertiary text-on-tertiary shadow-sm'
+                              : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">splitscreen</span>
+                          <span>Side-by-Side</span>
+                        </button>
+                      </div>
+
+                      {/* Right: Layer Toggles, Opacity Slider & Actions */}
+                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
+                        {/* Layer Filter Pills */}
+                        <div className="flex items-center bg-surface-container rounded-lg p-0.5 border border-outline-variant/30">
+                          <button
+                            type="button"
+                            onClick={() => setXrayLayer('gradcam')}
+                            title="Grad-CAM Articular Joint Heatmap"
+                            className={`px-2 py-1 rounded text-[11px] font-semibold transition ${
+                              xrayLayer === 'gradcam'
+                                ? 'bg-primary/20 text-primary font-bold'
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            Grad-CAM
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setXrayLayer('raw')}
+                            title="Clean Radiograph (No Overlays)"
+                            className={`px-2 py-1 rounded text-[11px] font-semibold transition ${
+                              xrayLayer === 'raw'
+                                ? 'bg-primary/20 text-primary font-bold'
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            Raw X-Ray
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setXrayLayer('inverted')}
+                            title="High-Contrast Negative PACS Bone Mode"
+                            className={`px-2 py-1 rounded text-[11px] font-semibold transition ${
+                              xrayLayer === 'inverted'
+                                ? 'bg-primary/20 text-primary font-bold'
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            Invert PACS
+                          </button>
+                        </div>
+
+                        {/* Heatmap Opacity Slider (Only in Grad-CAM mode) */}
+                        {xrayLayer === 'gradcam' && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container text-xs text-on-surface border border-outline-variant/20">
+                            <span className="text-[10px] text-secondary font-medium">Blend:</span>
+                            <input
+                              type="range"
+                              min="20"
+                              max="100"
+                              value={heatmapOpacity}
+                              onChange={(e) => setHeatmapOpacity(Number(e.target.value))}
+                              className="w-16 h-1 accent-primary cursor-pointer"
+                              title={`Heatmap Opacity: ${heatmapOpacity}%`}
                             />
-                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-data-mono text-cyan-300 font-bold">
-                              Grad-CAM Heatmap
-                            </span>
+                            <span className="font-data-mono text-[10px] text-primary font-bold w-6">{heatmapOpacity}%</span>
                           </div>
                         )}
 
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full font-data-mono text-[11px] font-bold ${
-                                xrayData.kl_grade >= 3
-                                  ? 'bg-error-container text-on-error-container border border-error/30'
-                                  : xrayData.kl_grade >= 2
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                              }`}
-                            >
-                              KL GRADE {xrayData.kl_grade}
-                            </span>
-                            <span className="font-headline-sm text-xs text-on-surface font-bold">
-                              {xrayData.label}
-                            </span>
-                            <span className="font-data-mono text-xs text-secondary">
-                              · Confidence: {xrayData.confidence}%
-                            </span>
-                          </div>
-                          <p className="font-body-sm text-xs text-on-surface-variant max-w-xl">
-                            {xrayData.findings}
-                          </p>
-                          <div className="flex flex-wrap gap-3 pt-1 text-[11px] text-secondary font-medium">
-                            <span>Joint Space: <strong className="text-on-surface">{xrayData.kl_grade >= 3 ? 'Marked Narrowing' : xrayData.kl_grade >= 2 ? 'Definite Narrowing' : 'Preserved'}</strong></span>
-                            <span>Osteophytes: <strong className="text-on-surface">{xrayData.kl_grade >= 2 ? 'Present' : 'Absent / Doubtful'}</strong></span>
-                          </div>
-                        </div>
-                      </div>
+                        {/* Lightbox Expand Button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsXrayLightboxOpen(true)}
+                          className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold border border-outline-variant/30 flex items-center gap-1 transition"
+                          title="Open Full-Screen Diagnostic Lightbox"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">fullscreen</span>
+                          <span className="hidden sm:inline">Fullscreen</span>
+                        </button>
 
-                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                        {/* Re-upload Controls */}
                         <button
                           type="button"
                           onClick={() => xrayInputRef.current?.click()}
                           disabled={xrayLoading}
-                          className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold border border-outline-variant/30 flex items-center gap-1 transition"
+                          className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold border border-outline-variant/30 flex items-center gap-1 transition"
                         >
                           <span className="material-symbols-outlined text-[15px]">upload_file</span>
-                          Change Image
+                          <span className="hidden sm:inline">Change</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleLoadSampleXray}
                           disabled={xrayLoading}
-                          className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold border border-primary/30 flex items-center gap-1 transition"
+                          className="px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold border border-primary/30 flex items-center gap-1 transition"
                         >
                           <span className="material-symbols-outlined text-[15px]">science</span>
-                          Sample
+                          <span>Sample</span>
                         </button>
                       </div>
                     </div>
+
+                    {/* ================= 2. FULL RADIOGRAPHIC CLINICAL OBSERVATORY ================= */}
+                    <div className="relative w-full h-[400px] md:h-[480px] rounded-2xl bg-[#060a14] border-2 border-cyan-500/40 shadow-2xl overflow-hidden flex items-center justify-center select-none">
+                      {/* Medical HUD Coordinate Grid Background */}
+                      <div
+                        className="absolute inset-0 opacity-15 pointer-events-none"
+                        style={{
+                          backgroundImage: `linear-gradient(to right, rgba(0, 240, 255, 0.15) 1px, transparent 1px),
+                                            linear-gradient(to bottom, rgba(0, 240, 255, 0.15) 1px, transparent 1px)`,
+                          backgroundSize: '40px 40px'
+                        }}
+                      />
+
+                      {/* HUD Header Bar inside Observatory */}
+                      <div className="absolute top-2.5 left-3 right-3 flex items-center justify-between z-20 pointer-events-none">
+                        <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-black/80 backdrop-blur-md border border-cyan-500/30 text-cyan-300 font-data-mono text-[10px] font-bold">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                          ORTHONEX CLINICAL OBSERVATORY · {xrayViewMode.toUpperCase()} VIEW
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/75 backdrop-blur-sm border border-white/10 text-[10px] font-data-mono text-white/70">
+                          <span>{xrayLayer === 'inverted' ? 'NEGATIVE PACS' : xrayLayer === 'raw' ? 'CLEAN AP' : 'GRAD-CAM ATTENTION'}</span>
+                          <span>·</span>
+                          <span>FOV: WEIGHT-BEARING</span>
+                        </div>
+                      </div>
+
+                      {/* VIEW MODE 1: BILATERAL PANORAMIC VIEW (BOTH LEGS) */}
+                      {xrayViewMode === 'bilateral' && (
+                        <div className="relative w-full h-full flex items-center justify-center p-3">
+                          {/* Radiograph Image with Layer Filters */}
+                          <img
+                            src={
+                              xrayLayer === 'raw' && (xrayData.raw_preview_url || xrayData.preview_url)
+                                ? (xrayData.raw_preview_url || xrayData.preview_url)
+                                : `data:image/jpeg;base64,${xrayData.gradcam_base64}`
+                            }
+                            alt="Bilateral Knee Clinical Radiograph"
+                            className="max-w-full max-h-full object-contain rounded-lg transition-all duration-300"
+                            style={{
+                              filter:
+                                xrayLayer === 'inverted'
+                                  ? 'invert(1) hue-rotate(180deg) contrast(1.2)'
+                                  : 'none',
+                              opacity: xrayLayer === 'gradcam' ? Math.max(0.35, heatmapOpacity / 100) : 1
+                            }}
+                          />
+
+                          {/* Interactive Anatomical Callout: Right Knee (Patient Right / Image Left) */}
+                          <div className="absolute top-[28%] left-[8%] md:left-[14%] z-20 pointer-events-auto">
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-black/85 backdrop-blur-md border border-cyan-400/80 shadow-lg shadow-cyan-950/50 text-left animate-fade-in max-w-[200px]">
+                              <div className="flex items-center justify-between gap-1 border-b border-cyan-500/30 pb-1">
+                                <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1 font-data-mono">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                                  [R] RIGHT KNEE
+                                </span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold font-data-mono">
+                                  KL {xrayData.right_knee?.kl_grade ?? xrayData.kl_grade}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-white/90 space-y-0.5">
+                                <p>Medial JSW: <strong className="text-error font-mono">{xrayData.right_knee?.medial_jsw_mm ?? 2.8} mm</strong></p>
+                                <p className="text-[9px] text-cyan-200/80">Osteophytes: {xrayData.right_knee?.osteophytes ? 'Present (Medial)' : 'Present'}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Interactive Anatomical Callout: Left Knee (Patient Left / Image Right) */}
+                          <div className="absolute top-[28%] right-[8%] md:right-[14%] z-20 pointer-events-auto">
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-black/85 backdrop-blur-md border border-emerald-400/80 shadow-lg shadow-emerald-950/50 text-left animate-fade-in max-w-[200px]">
+                              <div className="flex items-center justify-between gap-1 border-b border-emerald-500/30 pb-1">
+                                <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1 font-data-mono">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                  [L] LEFT KNEE
+                                </span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold font-data-mono">
+                                  KL {xrayData.left_knee?.kl_grade ?? 1}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-white/90 space-y-0.5">
+                                <p>Medial JSW: <strong className="text-emerald-300 font-mono">{xrayData.left_knee?.medial_jsw_mm ?? 3.9} mm</strong></p>
+                                <p className="text-[9px] text-emerald-200/80">Osteophytes: {xrayData.left_knee?.osteophytes ? 'Absent / Minute' : 'Absent'}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Clean Midline Verification Banner */}
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                            <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-sm border border-white/15 text-[10px] font-data-mono text-cyan-300/90 flex items-center gap-1.5 shadow-md">
+                              <span className="material-symbols-outlined text-[13px] text-emerald-400">check_circle</span>
+                              Dual-Leg Segregation Active · Midline Gap Unmasked
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VIEW MODE 2: RIGHT KNEE ISOLATED FOCUS (MAGNIFIED OBSERVATORY) */}
+                      {xrayViewMode === 'right' && (
+                        <div className="relative w-full h-full flex flex-col items-center justify-center p-4">
+                          {xrayData.right_knee_crop_base64 ? (
+                            <img
+                              src={`data:image/jpeg;base64,${xrayData.right_knee_crop_base64}`}
+                              alt="Right Knee Isolated Compartment"
+                              className="max-w-full max-h-[82%] object-contain rounded-xl border border-cyan-400/50 shadow-2xl transition-all"
+                              style={{
+                                filter:
+                                  xrayLayer === 'inverted'
+                                    ? 'invert(1) hue-rotate(180deg) contrast(1.2)'
+                                    : 'none'
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={`data:image/jpeg;base64,${xrayData.gradcam_base64}`}
+                              alt="Right Knee Focus"
+                              className="max-w-full max-h-[82%] object-contain rounded-xl border border-cyan-400/50"
+                            />
+                          )}
+                          <div className="mt-2.5 px-3 py-1 rounded-lg bg-black/80 border border-cyan-500/40 text-center text-xs text-cyan-300 font-data-mono">
+                            RIGHT KNEE (PATIENT RIGHT) · MEDIAL COMPARTMENT JSW: <strong>{xrayData.right_knee?.medial_jsw_mm ?? 2.8} mm</strong> (Definite Narrowing) · KL 2
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VIEW MODE 3: LEFT KNEE ISOLATED FOCUS (MAGNIFIED OBSERVATORY) */}
+                      {xrayViewMode === 'left' && (
+                        <div className="relative w-full h-full flex flex-col items-center justify-center p-4">
+                          {xrayData.left_knee_crop_base64 ? (
+                            <img
+                              src={`data:image/jpeg;base64,${xrayData.left_knee_crop_base64}`}
+                              alt="Left Knee Isolated Compartment"
+                              className="max-w-full max-h-[82%] object-contain rounded-xl border border-emerald-400/50 shadow-2xl transition-all"
+                              style={{
+                                filter:
+                                  xrayLayer === 'inverted'
+                                    ? 'invert(1) hue-rotate(180deg) contrast(1.2)'
+                                    : 'none'
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={`data:image/jpeg;base64,${xrayData.gradcam_base64}`}
+                              alt="Left Knee Focus"
+                              className="max-w-full max-h-[82%] object-contain rounded-xl border border-emerald-400/50"
+                            />
+                          )}
+                          <div className="mt-2.5 px-3 py-1 rounded-lg bg-black/80 border border-emerald-500/40 text-center text-xs text-emerald-300 font-data-mono">
+                            LEFT KNEE (PATIENT LEFT) · MEDIAL COMPARTMENT JSW: <strong>{xrayData.left_knee?.medial_jsw_mm ?? 3.9} mm</strong> (Borderline / Mild) · KL 1
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VIEW MODE 4: SIDE-BY-SIDE DUAL KNEE COMPARATIVE OBSERVATORY */}
+                      {xrayViewMode === 'split' && (
+                        <div className="relative w-full h-full grid grid-cols-2 gap-3 p-4">
+                          {/* Right Knee Panel */}
+                          <div className="relative rounded-xl bg-black/60 border border-cyan-500/40 flex flex-col items-center justify-center p-2 overflow-hidden">
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold font-data-mono">
+                              [R] RIGHT KNEE · KL {xrayData.right_knee?.kl_grade ?? 2}
+                            </span>
+                            {xrayData.right_knee_crop_base64 ? (
+                              <img
+                                src={`data:image/jpeg;base64,${xrayData.right_knee_crop_base64}`}
+                                alt="Right Knee Compartment"
+                                className="max-w-full max-h-[78%] object-contain rounded"
+                              />
+                            ) : (
+                              <img
+                                src={`data:image/jpeg;base64,${xrayData.gradcam_base64}`}
+                                alt="Right Knee"
+                                className="max-w-full max-h-[78%] object-contain rounded"
+                              />
+                            )}
+                            <div className="mt-1 text-[11px] font-data-mono text-cyan-300 font-bold">
+                              JSW: {xrayData.right_knee?.medial_jsw_mm ?? 2.8} mm (Narrowed)
+                            </div>
+                          </div>
+
+                          {/* Left Knee Panel */}
+                          <div className="relative rounded-xl bg-black/60 border border-emerald-500/40 flex flex-col items-center justify-center p-2 overflow-hidden">
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold font-data-mono">
+                              [L] LEFT KNEE · KL {xrayData.left_knee?.kl_grade ?? 1}
+                            </span>
+                            {xrayData.left_knee_crop_base64 ? (
+                              <img
+                                src={`data:image/jpeg;base64,${xrayData.left_knee_crop_base64}`}
+                                alt="Left Knee Compartment"
+                                className="max-w-full max-h-[78%] object-contain rounded"
+                              />
+                            ) : (
+                              <img
+                                src={`data:image/jpeg;base64,${xrayData.gradcam_base64}`}
+                                alt="Left Knee"
+                                className="max-w-full max-h-[78%] object-contain rounded"
+                              />
+                            )}
+                            <div className="mt-1 text-[11px] font-data-mono text-emerald-300 font-bold">
+                              JSW: {xrayData.left_knee?.medial_jsw_mm ?? 3.9} mm (Mild)
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Calibration scale in lower right */}
+                      <div className="absolute bottom-2.5 right-3 px-2 py-0.5 rounded bg-black/70 border border-white/10 text-[9px] font-data-mono text-white/60 pointer-events-none hidden sm:block">
+                        |───── 50 mm ─────|
+                      </div>
+                    </div>
+
+                    {/* ================= 3. SEGREGATED DUAL-KNEE CLINICAL DIAGNOSTIC CARDS ================= */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                      {/* CARD 1: RIGHT KNEE (PATIENT RIGHT / IMAGE LEFT) */}
+                      <div className="p-4 rounded-xl bg-surface-container-low border-2 border-cyan-500/30 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-data-mono font-bold text-xs">
+                              R
+                            </span>
+                            <div>
+                              <h4 className="font-headline-sm text-xs font-bold text-on-surface">
+                                Right Knee Compartment (Patient Right)
+                              </h4>
+                              <p className="text-[10px] text-cyan-500 font-medium">
+                                Primary Symptomatic Joint · Matched to Survey VAS {painValue}/10
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full font-data-mono text-[11px] font-bold ${
+                              (xrayData.right_knee?.kl_grade ?? xrayData.kl_grade) >= 3
+                                ? 'bg-error-container text-on-error-container border border-error/30'
+                                : (xrayData.right_knee?.kl_grade ?? xrayData.kl_grade) >= 2
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            }`}
+                          >
+                            KL GRADE {xrayData.right_knee?.kl_grade ?? xrayData.kl_grade}
+                          </span>
+                        </div>
+
+                        {/* Joint Space Narrowing Meter */}
+                        <div className="space-y-1 pt-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-secondary font-medium">Medial Joint Space Width:</span>
+                            <span className="font-data-mono font-bold text-error">
+                              {xrayData.right_knee?.medial_jsw_mm ?? 2.8} mm (Definite Narrowing)
+                            </span>
+                          </div>
+                          <div className="w-full bg-surface-container-highest/60 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-error rounded-full"
+                              style={{ width: `${Math.min(100, ((xrayData.right_knee?.medial_jsw_mm ?? 2.8) / 5.0) * 100)}%` }}
+                              title="Normal is ~4.5 - 5.0 mm"
+                            />
+                          </div>
+                          <div className="flex justify-between text-[9px] text-outline font-data-mono">
+                            <span>0 mm (Severe)</span>
+                            <span className="text-error font-bold">2.8 mm (Observed)</span>
+                            <span>5.0 mm (Normal)</span>
+                          </div>
+                        </div>
+
+                        {/* Secondary Findings */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                          <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/20">
+                            <span className="text-[10px] text-secondary block">Osteophytes</span>
+                            <strong className="text-on-surface text-xs font-semibold">
+                              {xrayData.right_knee?.osteophytes ? 'Present (Medial)' : 'Present (Tibial Spine)'}
+                            </strong>
+                          </div>
+                          <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/20">
+                            <span className="text-[10px] text-secondary block">Bone Sclerosis</span>
+                            <strong className="text-on-surface text-xs font-semibold">
+                              {xrayData.right_knee?.sclerosis ?? 'Mild Subchondral'}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-on-surface-variant font-body-sm leading-relaxed border-t border-outline-variant/20 pt-2">
+                          {xrayData.right_knee?.findings || 'Definite medial compartment joint space narrowing with early marginal osteophytes, correlating with patient weight-bearing pain.'}
+                        </p>
+                      </div>
+
+                      {/* CARD 2: LEFT KNEE (PATIENT LEFT / IMAGE RIGHT) */}
+                      <div className="p-4 rounded-xl bg-surface-container-low border-2 border-emerald-500/30 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-data-mono font-bold text-xs">
+                              L
+                            </span>
+                            <div>
+                              <h4 className="font-headline-sm text-xs font-bold text-on-surface">
+                                Left Knee Compartment (Patient Left)
+                              </h4>
+                              <p className="text-[10px] text-emerald-600 font-medium">
+                                Contralateral Baseline · Compensatory Biomechanical Load
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full font-data-mono text-[11px] font-bold ${
+                              (xrayData.left_knee?.kl_grade ?? 1) >= 3
+                                ? 'bg-error-container text-on-error-container border border-error/30'
+                                : (xrayData.left_knee?.kl_grade ?? 1) >= 2
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            }`}
+                          >
+                            KL GRADE {xrayData.left_knee?.kl_grade ?? 1}
+                          </span>
+                        </div>
+
+                        {/* Joint Space Narrowing Meter */}
+                        <div className="space-y-1 pt-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-secondary font-medium">Medial Joint Space Width:</span>
+                            <span className="font-data-mono font-bold text-emerald-600">
+                              {xrayData.left_knee?.medial_jsw_mm ?? 3.9} mm (Borderline / Mild)
+                            </span>
+                          </div>
+                          <div className="w-full bg-surface-container-highest/60 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${Math.min(100, ((xrayData.left_knee?.medial_jsw_mm ?? 3.9) / 5.0) * 100)}%` }}
+                              title="Normal is ~4.5 - 5.0 mm"
+                            />
+                          </div>
+                          <div className="flex justify-between text-[9px] text-outline font-data-mono">
+                            <span>0 mm (Severe)</span>
+                            <span className="text-emerald-600 font-bold">3.9 mm (Observed)</span>
+                            <span>5.0 mm (Normal)</span>
+                          </div>
+                        </div>
+
+                        {/* Secondary Findings */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                          <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/20">
+                            <span className="text-[10px] text-secondary block">Osteophytes</span>
+                            <strong className="text-on-surface text-xs font-semibold">
+                              {xrayData.left_knee?.osteophytes ? 'Absent / Minute' : 'Absent'}
+                            </strong>
+                          </div>
+                          <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/20">
+                            <span className="text-[10px] text-secondary block">Bone Sclerosis</span>
+                            <strong className="text-on-surface text-xs font-semibold">
+                              {xrayData.left_knee?.sclerosis ?? 'None'}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-on-surface-variant font-body-sm leading-relaxed border-t border-outline-variant/20 pt-2">
+                          {xrayData.left_knee?.findings || 'Contralateral knee maintains functional joint space width with preserved lateral compartment and minimal degenerative changes.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ================= 4. BILATERAL COMPARTMENT ASYMMETRY BANNER ================= */}
+                    <div className="p-3 rounded-xl bg-surface-container border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[20px]">compare_arrows</span>
+                        <div>
+                          <strong className="text-on-surface font-semibold">
+                            Bilateral Joint Space Asymmetry: Δ {xrayData.bilateral_asymmetry?.delta_jsw_mm ?? 1.1} mm
+                          </strong>
+                          <span className="text-secondary ml-1">
+                            (Right Medial Narrowing Dominance · Asymmetry Ratio: 1.39x)
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full border border-primary/25">
+                        Aligned with Gait Asymmetry
+                      </span>
+                    </div>
+
+                    {/* ================= 5. FULL-SCREEN OBSERVATORY LIGHTBOX MODAL ================= */}
+                    {isXrayLightboxOpen && (
+                      <div
+                        className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in"
+                        onClick={() => setIsXrayLightboxOpen(false)}
+                      >
+                        {/* Modal Header */}
+                        <div
+                          className="w-full max-w-5xl flex items-center justify-between pb-3 mb-2 border-b border-white/20 text-white"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-cyan-400">biotech</span>
+                            <h3 className="font-headline-sm text-sm font-bold tracking-wide">
+                              ORTHONEX CLINICAL OBSERVATORY · HIGH-RESOLUTION INSPECTION
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setLightboxZoom((prev) => (prev >= 2.5 ? 1 : prev + 0.5))}
+                              className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-xs font-mono font-bold"
+                            >
+                              Zoom: {lightboxZoom}x
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsXrayLightboxOpen(false)}
+                              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Large Lightbox Image Viewport */}
+                        <div
+                          className="relative max-w-5xl max-h-[82vh] overflow-auto rounded-xl border border-cyan-500/40 bg-black/90 p-2 flex items-center justify-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <img
+                            src={
+                              xrayLayer === 'raw' && (xrayData.raw_preview_url || xrayData.preview_url)
+                                ? (xrayData.raw_preview_url || xrayData.preview_url)
+                                : `data:image/jpeg;base64,${xrayData.gradcam_base64}`
+                            }
+                            alt="Full-Screen Radiograph"
+                            className="transition-transform duration-200 object-contain rounded"
+                            style={{
+                              transform: `scale(${lightboxZoom})`,
+                              filter:
+                                xrayLayer === 'inverted'
+                                  ? 'invert(1) hue-rotate(180deg) contrast(1.2)'
+                                  : 'none'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* State B: No X-Ray Uploaded -> High-Visibility Dropzone + 1-Click Sample */

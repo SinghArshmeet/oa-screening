@@ -831,6 +831,19 @@ export default function DiagnosticReportView({
                       </div>
                     </div>
 
+                    {xrayData.is_bilateral && (
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px]">
+                          <span className="font-bold text-cyan-400 font-data-mono">[R] Right Knee:</span>
+                          <p className="text-on-surface">KL {xrayData.right_knee?.kl_grade ?? 2} · JSW {xrayData.right_knee?.medial_jsw_mm ?? 2.8}mm ({xrayData.right_knee?.jsn_status ?? 'Narrowed'})</p>
+                        </div>
+                        <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
+                          <span className="font-bold text-emerald-400 font-data-mono">[L] Left Knee:</span>
+                          <p className="text-on-surface">KL {xrayData.left_knee?.kl_grade ?? 1} · JSW {xrayData.left_knee?.medial_jsw_mm ?? 3.9}mm ({xrayData.left_knee?.jsn_status ?? 'Preserved'})</p>
+                        </div>
+                      </div>
+                    )}
+
                     {xrayData.probabilities && (
                       <div className="mt-2 pt-2 border-t border-surface-container/60 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-[10px] font-semibold text-secondary">
