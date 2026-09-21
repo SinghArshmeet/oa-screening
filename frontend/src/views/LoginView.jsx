@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ROLES, DEMO_ACCOUNTS, loginUser, loginAsDemo, registerUser } from '../utils/auth';
+import { ROLES, loginWithPassword, signupUser, loginWithGoogle, formatSupabaseUser, getSession } from '../utils/auth';
 
 export default function LoginView({ onLogin }) {
   // Splash introduction animation state
@@ -99,47 +99,31 @@ export default function LoginView({ onLogin }) {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
-    setRegSuccessMessage('');
-
-    if (!regName.trim()) {
-      setErrorMessage('Please enter your full name and clinical designation.');
-      return;
-    }
-
-    if (!regEmail.trim() || !regEmail.includes('@')) {
-      setErrorMessage('Please enter a valid institutional or personal email.');
-      return;
-    }
-
-    if (!regPassword || regPassword.length < 5) {
-      setErrorMessage('Password must be at least 5 characters long.');
-      return;
-    }
-
     if (regPassword !== regConfirmPassword) {
-      setErrorMessage('Passwords do not match. Please re-enter your password.');
+      setErrorMessage('Passwords do not match.');
       return;
     }
-
     setIsSubmitting(true);
+    setErrorMessage('');
     try {
-      const newUser = await registerUser({
-        name: regName,
+      await signupUser({
         email: regEmail,
-        staffId: regStaffId,
+        password: regPassword,
+        name: regName,
         roleId: regRole,
-        station: regStation,
-        password: regPassword
+        station: regStation
       });
-      setIsSubmitting(false);
-      setRegSuccessMessage(`Practitioner ${newUser.name} enrolled successfully! Logging in...`);
+      setRegSuccessMessage('Account created successfully! You can now log in.');
       setTimeout(() => {
-        onLogin(newUser);
-      }, 750);
+        setAuthMode('login');
+        setRegSuccessMessage('');
+        setIdentifier(regEmail);
+        setPassword('');
+      }, 3000);
     } catch (err) {
+      setErrorMessage(err.message || 'Registration failed');
+    } finally {
       setIsSubmitting(false);
-      setErrorMessage(err.message || 'Registration could not be completed. Please try again.');
     }
   };
 
@@ -179,16 +163,12 @@ export default function LoginView({ onLogin }) {
     onLogin(user);
   };
 
-  const handleGoogleLogin = () => {
-    setGoogleNotice('');
-    setErrorMessage('');
-    if (!googleAuthConfigured) {
-      setGoogleNotice(
-        'Google authentication is not configured. For development and field testing, please use Station Credentials or continue in Offline Simulation / Demo Mode.'
-      );
-      return;
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      setErrorMessage(err.message || 'Google Login failed');
     }
-    window.location.href = `${API_BASE}/auth/google/login?role=${encodeURIComponent(selectedRole)}`;
   };
 
   const currentRoleConfig = ROLES[selectedRole] || ROLES.screener;

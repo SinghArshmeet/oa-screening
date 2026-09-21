@@ -6,6 +6,7 @@ const API_BASE =
     ? 'https://oa-ner-screening.onrender.com'
     : 'http://localhost:8000');
 
+import { getSession } from './auth';
 import {
   isSupabaseConfigured,
   fetchPatientsFromSupabase,
@@ -15,6 +16,18 @@ import {
   fetchLatestScreeningFromSupabase,
   uploadMediaToSupabase
 } from './supabase';
+
+
+async function authFetch(url, options = {}) {
+  const session = await getSession();
+  const headers = new Headers(options.headers || {});
+  if (session?.access_token) {
+    headers.set('Authorization', `Bearer ${session.access_token}`);
+  }
+  
+  // Remove credentials: 'include' if we want, or leave it. It's fine.
+  return fetch(url, { ...options, headers });
+}
 
 export const mockPatients = [
   {
@@ -321,7 +334,7 @@ export async function getPatients(currentUser = null) {
       if (currentUser.name) headers['X-User-Name'] = currentUser.name;
     }
 
-    const res = await fetch(`${API_BASE}/api/patients`, {
+    const res = await authFetch(`${API_BASE}/api/patients`, {
       credentials: 'include',
       headers,
       signal: AbortSignal.timeout(2000)
@@ -467,7 +480,7 @@ export async function createPatient(patientData) {
 
   // 2. Sync to FastAPI Backend
   try {
-    const res = await fetch(`${API_BASE}/api/patients`, {
+    const res = await authFetch(`${API_BASE}/api/patients`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -498,7 +511,7 @@ export async function createPatient(patientData) {
 export async function updatePatientVitals(patientId, vitals) {
   if (!patientId) return null;
   try {
-    const res = await fetch(`${API_BASE}/api/patients/${patientId}/vitals`, {
+    const res = await authFetch(`${API_BASE}/api/patients/${patientId}/vitals`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -616,7 +629,7 @@ export async function evaluateQuestionnaire(payload) {
 
   // 2. Try FastAPI Backend if available
   try {
-    const res = await fetch(`${API_BASE}/api/questionnaire`, {
+    const res = await authFetch(`${API_BASE}/api/questionnaire`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -650,7 +663,7 @@ export async function evaluateQuestionnaire(payload) {
 export async function predictClinicalRisk(clinicalPayload) {
   // 1. Try FastAPI Backend
   try {
-    const res = await fetch(`${API_BASE}/api/clinical/predict`, {
+    const res = await authFetch(`${API_BASE}/api/clinical/predict`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -717,7 +730,7 @@ export async function saveScreening(screeningData) {
 
   // 2. Sync to FastAPI Backend (local edge fallback)
   try {
-    const res = await fetch(`${API_BASE}/api/screenings`, {
+    const res = await authFetch(`${API_BASE}/api/screenings`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -761,7 +774,7 @@ export async function getLatestScreening(patientId) {
 
   // 2. Try FastAPI Backend
   try {
-    const res = await fetch(`${API_BASE}/api/screenings/latest/${patientId}`, {
+    const res = await authFetch(`${API_BASE}/api/screenings/latest/${patientId}`, {
       credentials: 'include',
       signal: AbortSignal.timeout(2500)
     });
@@ -777,7 +790,7 @@ export async function analyzeVideoFile(fileOrBlob, filename = 'webcam_gait_sessi
   formData.append('file', fileOrBlob, filename);
 
   try {
-    const res = await fetch(`${API_BASE}/api/movement/analyze-video`, {
+    const res = await authFetch(`${API_BASE}/api/movement/analyze-video`, {
       method: 'POST',
       credentials: 'include',
       body: formData,
@@ -824,7 +837,7 @@ export async function analyzeXrayImage(file) {
   formData.append('file', file, file.name);
 
   try {
-    const res = await fetch(`${API_BASE}/api/xray/analyze`, {
+    const res = await authFetch(`${API_BASE}/api/xray/analyze`, {
       method: 'POST',
       credentials: 'include',
       body: formData,

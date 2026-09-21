@@ -15,7 +15,7 @@ import CompleteProfileView from './views/CompleteProfileView';
 import LoginView from './views/LoginView';
 import { checkBackendHealth, getPatients, createPatient, saveScreening, getLatestScreening } from './utils/api';
 import { useCamera } from './utils/useCamera';
-import { getStoredUser, logoutUser, fetchServerUserProfile, getRoleConfig, isTabAllowedForRole } from './utils/auth';
+import { getStoredUser, logoutUser, getRoleConfig, isTabAllowedForRole, onAuthStateChange, formatSupabaseUser, getSession } from './utils/auth';
 
 const VALID_TABS = ['overview', 'survey', 'gait', 'report', 'cohort', 'hardware'];
 
@@ -47,75 +47,96 @@ export default function App() {
   const [xrayResult, setXrayResult] = useState(null);
 
   // 1. Check for server-side OAuth session on mount or return from Google redirect
+  
   useEffect(() => {
     let isMounted = true;
-    const params = new URLSearchParams(window.location.search);
-    const hasAuthSuccess = params.get('auth_success');
-    const authError = params.get('auth_error');
-
-    if (hasAuthSuccess || authError) {
-      if (authError) {
-        alert('Google Authentication Error: ' + authError);
-      }
-      // Clean query params from URL bar without reload
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // Attempt to resolve active session from backend cookie
-    fetchServerUserProfile().then((serverUser) => {
-      if (isMounted && serverUser) {
-        const stored = getStoredUser();
-        if (stored && stored.id === serverUser.id && stored.profileCompleted) {
-          setCurrentUser({ ...serverUser, ...stored });
-        } else {
-          setCurrentUser(serverUser);
+    
+    // Initial fetch
+    getSession().then((session) => {
+      if (isMounted) {
+        const user = formatSupabaseUser(session?.user);
+        if (user) {
+          const stored = getStoredUser();
+          if (stored && stored.profileCompleted) {
+            setCurrentUser({ ...user, profileCompleted: true });
+          } else {
+            setCurrentUser(user);
+          }
         }
+      }
+    });
+
+    // Listen to changes
+    const subscription = onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const user = formatSupabaseUser(session?.user);
+        if (user) {
+          const stored = getStoredUser();
+          if (stored && stored.profileCompleted) {
+            setCurrentUser({ ...user, profileCompleted: true });
+          } else {
+            setCurrentUser(user);
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
       }
     });
 
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  // 1b. History & Navigation Engine (Prevents back-button loops, persists tab, restores scroll)
-  useEffect(() => {
-    const initial = getInitialTab();
-    const currentState = window.history.state;
-    if (!currentState || !currentState.tab) {
-      window.history.replaceState(
-        { tab: initial, isRoot: true, index: 0 },
-        document.title,
-        window.location.hash || `#${initial}`
-      );
-    }
-    sessionStorage.setItem('orthonex_active_tab', initial);
-
-    const handlePopState = (event) => {
-      const stateTab = event.state?.tab;
-      if (stateTab && VALID_TABS.includes(stateTab)) {
-        isHandlingPopState.current = true;
-        setActiveTab(stateTab);
-        sessionStorage.setItem('orthonex_active_tab', stateTab);
-
-        const targetScroll = scrollPositions.current[stateTab] || 0;
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: targetScroll, behavior: 'instant' });
-          setTimeout(() => {
-            isHandlingPopState.current = false;
-          }, 60);
-        });
-      } else {
-        setActiveTab('overview');
-        sessionStorage.setItem('orthonex_active_tab', 'overview');
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
       }
     };
+  }, []);
 
-    window.addEventListener('popstate', handlePopState);
+
+  // 1b. History & Navigation Engine (Prevents back-button loops, persists tab, restores scroll)
+  
+  useEffect(() => {
+    let isMounted = true;
+    
+    // Initial fetch
+    getSession().then((session) => {
+      if (isMounted) {
+        const user = formatSupabaseUser(session?.user);
+        if (user) {
+          const stored = getStoredUser();
+          if (stored && stored.profileCompleted) {
+            setCurrentUser({ ...user, profileCompleted: true });
+          } else {
+            setCurrentUser(user);
+          }
+        }
+      }
+    });
+
+    // Listen to changes
+    const subscription = onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const user = formatSupabaseUser(session?.user);
+        if (user) {
+          const stored = getStoredUser();
+          if (stored && stored.profileCompleted) {
+            setCurrentUser({ ...user, profileCompleted: true });
+          } else {
+            setCurrentUser(user);
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+      }
+    });
+
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      isMounted = false;
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
     };
   }, []);
+
 
   const handleNavigate = (newTab, options = {}) => {
     if (!VALID_TABS.includes(newTab)) return;

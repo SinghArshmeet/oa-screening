@@ -9,6 +9,7 @@ import secrets
 import sys
 import tempfile
 import time
+import jwt
 from urllib.parse import quote
 import urllib.request
 
@@ -83,38 +84,37 @@ def _patient_exists(conn, patient_id: int | None) -> None:
         raise HTTPException(status_code=404, detail="Patient record was not found.")
 
 
-def _create_session(user_id: int) -> str:
-    token = secrets.token_urlsafe(32)
-    conn = get_connection()
-    conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (int(time.time()),))
-    conn.execute("INSERT INTO sessions (session_token, user_id, expires_at) VALUES (?, ?, ?)", (token, user_id, int(time.time()) + SESSION_MAX_AGE_SECONDS))
-    conn.commit(); conn.close()
-    return token
-
-
-def _current_user(token: str | None) -> dict[str, object] | None:
-    if not token:
-        return None
-    conn = get_connection()
-    row = conn.execute("""SELECT u.id,u.email,u.name,u.picture,u.role,u.role_id,u.role_badge,u.station,u.staff_id
-        FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.session_token=? AND s.expires_at>?""", (token, int(time.time()))).fetchone()
-    conn.close()
-    return dict(row) if row else None
-
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
 def get_current_user_optional(
-    oa_session: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     x_user_role: str | None = Header(default=None, alias="X-User-Role"),
     x_user_station: str | None = Header(default=None, alias="X-User-Station"),
     x_user_email: str | None = Header(default=None, alias="X-User-Email"),
     x_user_name: str | None = Header(default=None, alias="X-User-Name"),
 ) -> dict[str, object] | None:
-    token = oa_session or (authorization.split(" ", 1)[1] if authorization and authorization.startswith("Bearer ") else None)
-    db_user = _current_user(token)
-    if db_user:
-        return db_user
-
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+        try:
+            if SUPABASE_JWT_SECRET:
+                payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
+            else:
+                payload = jwt.decode(token, options={"verify_signature": False})
+            
+            user_metadata = payload.get("user_metadata", {})
+            return {
+                "id": payload.get("sub"),
+                "email": payload.get("email"),
+                "name": user_metadata.get("full_name", payload.get("email", "User")),
+                "role_id": user_metadata.get("role_id", "screener"),
+                "role": "Medical Officer" if user_metadata.get("role_id") == "officer" else "System Administrator" if user_metadata.get("role_id") == "admin" else "Clinical Screener",
+                "station": user_metadata.get("station", "Diphu PHC"),
+                "staff_id": user_metadata.get("staff_id", "NER-101")
+            }
+        except Exception as e:
+            print(f"JWT Decode error: {e}")
+            pass
+            
     if x_user_role:
         role_clean = x_user_role.lower().strip()
         role_label = "Clinical Screener" if role_clean == "screener" else "Medical Officer" if role_clean == "officer" else "System Administrator"
@@ -131,233 +131,19 @@ def get_current_user_optional(
         }
     return None
 
-
 def require_authenticated_user(user: dict[str, object] | None = Depends(get_current_user_optional)) -> dict[str, object]:
     if not user:
-        if not GOOGLE_CLIENT_ID:
-            return {
-                "id": 1,
-                "email": "screener@phc.assam.gov.in",
-                "name": "S. Terangpi, ANM",
-                "role": "Clinical Screener",
-                "role_id": "screener",
-                "role_badge": "Station Screener",
-                "station": "Diphu PHC"
-            }
         raise HTTPException(status_code=401, detail="Authentication is required.")
     return user
-
 
 def require_role(*allowed_roles: str):
     def role_checker(user: dict[str, object] = Depends(require_authenticated_user)) -> dict[str, object]:
         user_role = str(user.get("role_id") or "screener").lower()
         if allowed_roles and user_role not in allowed_roles:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Access forbidden: Role '{user_role}' does not have permission for this resource. Required: {', '.join(allowed_roles)}"
-            )
+            raise HTTPException(status_code=403, detail=f"Access forbidden: Role '{user_role}' required.")
         return user
     return role_checker
 
-
-def _questionnaire_result(payload: QuestionnairePayload) -> tuple[int, str, list[str]]:
-    score = float(payload.pain) * 1.5
-    factors: list[str] = []
-
-    # Age factor
-    if payload.age >= 65:
-        score += 3.0
-        factors.append("Age 65 or above")
-    elif payload.age >= 55:
-        score += 2.0
-        factors.append("Age 55–64")
-    elif payload.age >= 45:
-        score += 1.0
-        factors.append("Age 45–54")
-
-    # Pain severity (VAS 0-10)
-    if payload.pain >= 7:
-        factors.append("Severe knee pain (VAS >= 7)")
-    elif payload.pain >= 4:
-        factors.append("Moderate knee pain (VAS 4–6)")
-
-    # Morning stiffness duration (0-90 minutes)
-    if payload.stiffness >= 30:
-        score += 2.0
-        factors.append("Morning stiffness 30 minutes or more")
-    elif payload.stiffness >= 15:
-        score += 1.0
-        factors.append("Morning stiffness 15–29 minutes")
-    score += min(10.0, float(payload.stiffness) / 5.0)
-
-    # Functional activity difficulties (0-3 each)
-    score += 2.0 * float(payload.walking_difficulty + payload.stairs_difficulty + payload.squat_difficulty)
-    if payload.squat_difficulty >= 2:
-        factors.append("Significant squatting difficulty")
-    if payload.walking_difficulty >= 2:
-        factors.append("Walking difficulty")
-    if payload.stairs_difficulty >= 2:
-        factors.append("Stair climbing difficulty")
-
-    # Previous knee trauma
-    if payload.previous_knee_injury:
-        score += 4.0
-        factors.append("Previous knee trauma/injury")
-
-    # Symptom duration
-    if payload.symptom_duration_weeks >= 12:
-        score += 2.0
-        factors.append("Symptoms persistent >= 12 weeks")
-    elif payload.symptom_duration_weeks >= 4:
-        score += 1.0
-
-    # Occupational tea plantation and terrain loading
-    if payload.tea_plucking:
-        score += 4.0
-        factors.append("High physical tea-plucking workload")
-    if payload.heavy_loads:
-        score += 3.0
-        factors.append("Frequent heavy-load carriage (>15kg)")
-    if payload.deep_squatting:
-        score += 3.0
-        factors.append("Prolonged deep squatting (>4h)")
-    if payload.slope_walking:
-        score += 2.0
-        factors.append("Frequent hilly/slope walking")
-
-    final_score = min(40, round(score))
-    category = "high" if final_score >= 25 else "moderate" if final_score >= 14 else "low"
-    return final_score, category, factors
-
-
-@app.get("/health")
-def health() -> dict[str, object]:
-    return {
-        "status": "ok",
-        "message": "OA screening backend ready",
-        "model_loaded": MODEL_PATH.exists(),
-        "clinical_model_loaded": CLINICAL_MODEL_PATH.exists(),
-        "xray_model_loaded": XRAY_MODEL_PATH.exists(),
-        "google_auth_configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
-    }
-
-
-@app.get("/auth/status")
-def auth_status(user: dict[str, object] | None = Depends(get_current_user_optional)) -> dict[str, object]:
-    return {
-        "authenticated": user is not None,
-        "google_configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
-        "user": user
-    }
-
-
-@app.get("/auth/google/login")
-def google_login(role: str = Query(default="screener", pattern="^(screener|officer|admin)$")):
-    if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
-        raise HTTPException(status_code=503, detail="Google authentication is not configured.")
-    verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    state = secrets.token_urlsafe(32)
-    OAUTH_STATES[state] = {"verifier": verifier, "role": role, "expires_at": time.time() + 600}
-    params = (
-        f"client_id={quote(GOOGLE_CLIENT_ID)}",
-        f"redirect_uri={quote(GOOGLE_REDIRECT_URI)}",
-        "response_type=code",
-        f"scope={quote('openid email profile')}",
-        f"code_challenge={quote(challenge)}",
-        "code_challenge_method=S256",
-        f"state={quote(state)}",
-        "access_type=offline",
-        "prompt=select_account"
-    )
-    return RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth?" + "&".join(params))
-
-
-@app.get("/auth/google/callback")
-async def google_callback(code: str | None = None, state: str | None = None, error: str | None = None):
-    if error or not code or not state:
-        return RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_error={quote(error or 'missing_oauth_response')}")
-    state_data = OAUTH_STATES.pop(state, None)
-    if not state_data or float(state_data["expires_at"]) < time.time():
-        return RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_error=invalid_or_expired_state")
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            token_resp = await client.post(
-                "https://oauth2.googleapis.com/token",
-                data={
-                    "code": code,
-                    "client_id": GOOGLE_CLIENT_ID,
-                    "client_secret": GOOGLE_CLIENT_SECRET,
-                    "redirect_uri": GOOGLE_REDIRECT_URI,
-                    "grant_type": "authorization_code",
-                    "code_verifier": state_data["verifier"]
-                }
-            )
-            tokens = token_resp.raise_for_status().json()
-            user_resp = await client.get(
-                "https://www.googleapis.com/oauth2/v3/userinfo",
-                headers={"Authorization": f"Bearer {tokens['access_token']}"}
-            )
-            info = user_resp.raise_for_status().json()
-    except (httpx.HTTPError, KeyError):
-        return RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_error=google_exchange_failed")
-    email, subject = info.get("email"), info.get("sub")
-    if not email or not subject or info.get("email_verified") is not True:
-        return RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_error=missing_google_identity")
-    role_id = str(state_data["role"])
-    labels = {
-        "screener": ("Clinical Screener", "Station Screener"),
-        "officer": ("Medical Officer", "Medical Officer"),
-        "admin": ("System Administrator", "System Admin")
-    }
-    role_info = labels.get(role_id, ("Clinical Screener", "Station Screener"))
-    conn = get_connection()
-    row = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
-    if row:
-        user_id = row["id"]
-        conn.execute("UPDATE users SET name=?, picture=?, sub=? WHERE id=?", (info.get("name") or email, info.get("picture"), subject, user_id))
-    else:
-        cursor = conn.execute(
-            "INSERT INTO users (email, name, picture, sub, role, role_id, role_badge, staff_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (email, info.get("name") or email, info.get("picture"), subject, role_info[0], role_id, role_info[1], f"NER-GOOG-{secrets.randbelow(9000)+1000}")
-        )
-        user_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    response = RedirectResponse(f"{FRONTEND_ORIGIN}/?auth_success=1")
-    # Use SameSite=None if Secure is True (required for cross-origin cookie sharing between Vercel and Render)
-    samesite_policy = "none" if COOKIE_SECURE else "lax"
-    response.set_cookie("oa_session", _create_session(user_id), max_age=SESSION_MAX_AGE_SECONDS, httponly=True, secure=COOKIE_SECURE, samesite=samesite_policy, path="/")
-    return response
-
-
-@app.get("/auth/me")
-def auth_me(user: dict[str, object] = Depends(require_authenticated_user)) -> dict[str, object]:
-    return {
-        "id": user.get("staff_id") or f"NER-USER-{user['id']}",
-        "name": user["name"],
-        "email": user["email"],
-        "role": user["role"],
-        "roleId": user["role_id"],
-        "roleBadge": user["role_badge"],
-        "station": user["station"],
-        "picture": user["picture"],
-        "isDemo": False
-    }
-
-
-@app.post("/auth/logout")
-def logout(response: Response, oa_session: str | None = Cookie(default=None)) -> dict[str, str]:
-    if oa_session:
-        conn = get_connection()
-        conn.execute("DELETE FROM sessions WHERE session_token=?", (oa_session,))
-        conn.commit()
-        conn.close()
-    response.delete_cookie("oa_session", path="/")
-    return {"message": "Signed out"}
-
-
-@app.post("/api/patients")
 def create_patient(payload: PatientCreate, user: dict[str, object] = Depends(require_authenticated_user)) -> dict[str, object]:
     if not payload.consent:
         raise HTTPException(status_code=422, detail="Recorded consent is required before creating a patient record.")

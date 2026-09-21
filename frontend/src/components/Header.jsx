@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ROLES, getAccountsForRole, getRoleConfig, isTabAllowedForRole } from '../utils/auth';
+import { ROLES, getRoleConfig, isTabAllowedForRole } from '../utils/auth';
 
 export default function Header({
   activeTab,
@@ -48,7 +48,7 @@ export default function Header({
   }, []);
 
   const currentRoleId = currentUser?.roleId || (currentUser?.role?.toLowerCase().includes('officer') ? 'officer' : currentUser?.role?.toLowerCase().includes('admin') ? 'admin' : 'screener');
-  const roleAccounts = getAccountsForRole(currentRoleId);
+  
   const roleConfig = getRoleConfig(currentRoleId);
 
   const allNavTabs = [
@@ -135,10 +135,7 @@ export default function Header({
           </div>
 
           <button
-            onClick={() => {
-              setActiveTab('overview');
-              setShowMobileMenu(false);
-            }}
+            onClick={() => setActiveTab('overview')}
             type="button"
             className="flex items-center gap-2 sm:gap-2.5 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl transition-all hover:opacity-95 active:scale-[0.98] cursor-pointer"
             title="Return to OrthoNex Main Page"

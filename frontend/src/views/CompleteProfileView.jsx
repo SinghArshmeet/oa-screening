@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ROLES } from '../utils/auth';
+import { supabase } from '../utils/supabase';
 
 export default function CompleteProfileView({ currentUser, onComplete }) {
   const [role, setRole] = useState('screener');
@@ -30,6 +31,16 @@ export default function CompleteProfileView({ currentUser, onComplete }) {
         station: station.trim(),
         profileCompleted: true
       };
+      
+      // Update Supabase user metadata
+      await supabase.auth.updateUser({
+        data: {
+          role_id: role,
+          station: station.trim(),
+          staff_id: updatedUser.staffId,
+          profile_completed: true
+        }
+      });
       
       // Attempt to save to local session so it persists on reload
       const sessionKey = 'oa_ner_auth_session';
