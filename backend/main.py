@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import jwt
+from jwt import PyJWKClient
 from urllib.parse import quote
 import urllib.request
 
