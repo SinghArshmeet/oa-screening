@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ROLES, loginWithPassword, signupUser, loginWithGoogle, formatSupabaseUser, getSession } from '../utils/auth';
+import { ROLES, DEMO_ACCOUNTS, loginAsDemo, loginWithPassword, signupUser, loginWithGoogle, formatSupabaseUser, getSession } from '../utils/auth';
 
 export default function LoginView({ onLogin }) {
   // Splash introduction animation state
@@ -83,17 +83,38 @@ export default function LoginView({ onLogin }) {
 
     setIsSubmitting(true);
     try {
-      const user = await loginUser({
-        identifier,
-        password,
-        roleId: selectedRole,
-        rememberDevice
+      // 1. Check if user is logging in with preset frontline demo credentials
+      const matchingDemo = DEMO_ACCOUNTS.find(
+        (acc) =>
+          acc.email.toLowerCase() === identifier.trim().toLowerCase() &&
+          acc.password === password
+      );
+
+      if (matchingDemo) {
+        const demoUser = loginAsDemo(matchingDemo.role);
+        // Persist session so it survives reloads
+        sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(demoUser));
+        setIsSubmitting(false);
+        onLogin(demoUser);
+        return;
+      }
+
+      // 2. Real Supabase Authentication for registered users
+      const { user } = await loginWithPassword({
+        email: identifier.trim(),
+        password: password
       });
-      setIsSubmitting(false);
-      onLogin(user);
+
+      if (user) {
+        const formatted = formatSupabaseUser(user);
+        setIsSubmitting(false);
+        onLogin(formatted);
+      } else {
+        throw new Error('Could not retrieve user profile.');
+      }
     } catch (err) {
       setIsSubmitting(false);
-      setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+      setErrorMessage(err.message || 'Authentication failed. Please verify email and password.');
     }
   };
 

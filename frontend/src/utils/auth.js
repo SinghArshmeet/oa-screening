@@ -151,7 +151,58 @@ export function formatSupabaseUser(user) {
   };
 }
 
+export const DEMO_ACCOUNTS = [
+  {
+    role: 'screener',
+    email: 'screener@phc.assam.gov.in',
+    password: 'demo123',
+    name: 'S. Terangpi, ANM',
+    station: 'Diphu Civil Hospital Hub',
+    staffId: 'NER-SCR-1042'
+  },
+  {
+    role: 'officer',
+    email: 'mo.sharma@gmch.gov.in',
+    password: 'demo123',
+    name: 'Dr. R. Sharma, MO',
+    station: 'Guwahati Medical College & Hospital (GMCH)',
+    staffId: 'NER-MO-8841'
+  },
+  {
+    role: 'admin',
+    email: 'admin.diphu@icmr.gov.in',
+    password: 'admin123',
+    name: 'Eng. K. Das, IT',
+    station: 'ICMR Regional RMRC Hub',
+    staffId: 'NER-ADM-9002'
+  }
+];
+
+export function loginAsDemo(roleId = 'screener') {
+  const account = DEMO_ACCOUNTS.find(a => a.role === roleId) || DEMO_ACCOUNTS[0];
+  const roleConfig = getRoleConfig(account.role);
+  return {
+    id: `demo-${account.role}-${Date.now()}`,
+    email: account.email,
+    name: account.name,
+    roleId: account.role,
+    role: roleConfig.label,
+    roleBadge: roleConfig.badge,
+    station: account.station,
+    staffId: account.staffId,
+    isDemo: true,
+    profileCompleted: true
+  };
+}
+
 export function getStoredUser() {
+  // Check session storage first for demo or completed sessions
+  try {
+    const sessionKey = 'oa_ner_auth_session';
+    const raw = sessionStorage.getItem(sessionKey);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+
   // Try to load synchronously from localStorage if possible (Supabase stores it in localstorage)
   try {
     const sbKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
