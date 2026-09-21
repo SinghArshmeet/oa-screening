@@ -385,29 +385,40 @@ export function getPatientsForRole(currentUser, allPatients = mockPatients) {
 
   if (roleId === 'screener') {
     // Screeners only see their assigned station or local regional patients in their triage queue
-    const isAssam = userStation.includes('assam') || userStation.includes('diphu') || userStation.includes('bokajan');
-    const isDelhi = userStation.includes('delhi') || userStation.includes('safdarjung');
-    const isNoida = userStation.includes('noida');
+    const isAssam = userStation.includes('assam') || userStation.includes('diphu') || userStation.includes('bokajan') || userStation.includes('karbi') || userStation.includes('gmch');
+    const isDelhi = userStation.includes('delhi') || userStation.includes('safdarjung') || userStation.includes('aiims');
+    const isNoida = userStation.includes('noida') || userStation.includes('gautam') || userStation.includes('uttar pradesh');
+    const isPunjab = userStation.includes('punjab') || userStation.includes('chandigarh') || userStation.includes('pgimer') || userStation.includes('ludhiana');
+    const isTamilNadu = userStation.includes('tamil nadu') || userStation.includes('vellore') || userStation.includes('kanchipuram') || userStation.includes('cmc');
+    const isMaharashtra = userStation.includes('maharashtra') || userStation.includes('pune');
     const stationKeyword = userStation.split(',')[0].trim().toLowerCase();
 
-    return allPatients.filter((p) => {
+    const filtered = allPatients.filter((p) => {
       const pStation = (p.assignedStation || '').toLowerCase();
       const pRegion = (p.region || '').toLowerCase();
       const pState = (p.state || '').toLowerCase();
 
       if (stationKeyword && pStation.includes(stationKeyword)) return true;
       if (isAssam && (pState.includes('assam') || pRegion.includes('diphu') || pRegion.includes('karbi') || pStation.includes('diphu') || pStation.includes('bokajan'))) return true;
-      if (isDelhi && (pState.includes('delhi') || pRegion.includes('delhi') || pStation.includes('safdarjung'))) return true;
-      if (isNoida && (pRegion.includes('noida') || pState.includes('uttar pradesh') || pStation.includes('noida'))) return true;
+      if (isDelhi && (pState.includes('delhi') || pRegion.includes('delhi') || pStation.includes('safdarjung') || pStation.includes('aiims'))) return true;
+      if (isNoida && (pRegion.includes('noida') || pState.includes('uttar pradesh') || pStation.includes('noida') || pStation.includes('gims'))) return true;
+      if (isPunjab && (pState.includes('punjab') || pRegion.includes('ludhiana') || pStation.includes('ludhiana') || pStation.includes('chandigarh'))) return true;
+      if (isTamilNadu && (pState.includes('tamil nadu') || pRegion.includes('kanchipuram') || pStation.includes('kanchipuram') || pStation.includes('vellore'))) return true;
+      if (isMaharashtra && (pState.includes('maharashtra') || pRegion.includes('pune') || pStation.includes('pune'))) return true;
       return false;
     });
+
+    return filtered.length > 0 ? filtered : allPatients;
   }
 
   if (roleId === 'officer') {
     // Medical Officers see clinical network cases (patients referred for teleconsult, needing X-ray, or moderate/high risk)
     const isAssam = userStation.includes('assam') || userStation.includes('gmch') || userStation.includes('diphu');
-    const isDelhi = userStation.includes('delhi') || userStation.includes('aiims');
+    const isDelhi = userStation.includes('delhi') || userStation.includes('aiims') || userStation.includes('safdarjung');
     const isNoida = userStation.includes('noida') || userStation.includes('gims');
+    const isPunjab = userStation.includes('punjab') || userStation.includes('chandigarh') || userStation.includes('pgimer');
+    const isTamilNadu = userStation.includes('tamil nadu') || userStation.includes('vellore') || userStation.includes('cmc');
+    const isMaharashtra = userStation.includes('maharashtra') || userStation.includes('pune');
 
     return allPatients.filter((p) => {
       const pRegion = (p.region || '').toLowerCase();
@@ -418,9 +429,15 @@ export function getPatientsForRole(currentUser, allPatients = mockPatients) {
       if (isAssam) {
         regionMatch = pState.includes('assam') || pRegion.includes('diphu') || pStation.includes('diphu') || pStation.includes('bokajan') || p.combinedRisk === 'high';
       } else if (isDelhi) {
-        regionMatch = pState.includes('delhi') || pRegion.includes('delhi') || p.combinedRisk === 'high';
+        regionMatch = pState.includes('delhi') || pRegion.includes('delhi') || pStation.includes('safdarjung') || p.combinedRisk === 'high';
       } else if (isNoida) {
-        regionMatch = pRegion.includes('noida') || pState.includes('uttar pradesh') || p.combinedRisk === 'high';
+        regionMatch = pRegion.includes('noida') || pState.includes('uttar pradesh') || pStation.includes('noida') || p.combinedRisk === 'high';
+      } else if (isPunjab) {
+        regionMatch = pState.includes('punjab') || pRegion.includes('ludhiana') || pStation.includes('ludhiana') || p.combinedRisk === 'high';
+      } else if (isTamilNadu) {
+        regionMatch = pState.includes('tamil nadu') || pRegion.includes('kanchipuram') || pStation.includes('kanchipuram') || p.combinedRisk === 'high';
+      } else if (isMaharashtra) {
+        regionMatch = pState.includes('maharashtra') || pRegion.includes('pune') || pStation.includes('pune') || p.combinedRisk === 'high';
       }
 
       return regionMatch && (p.combinedRisk === 'high' || p.combinedRisk === 'moderate' || p.sopStatus?.includes('Stage 3') || p.surveyCompleted);

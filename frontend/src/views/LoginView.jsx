@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ROLES, DEMO_ACCOUNTS, loginAsDemo, loginWithPassword, signupUser, loginWithGoogle, formatSupabaseUser, getSession } from '../utils/auth';
+import { ROLES, DEMO_ACCOUNTS, loginAsDemo, formatAccount, loginWithPassword, signupUser, loginWithGoogle, formatSupabaseUser, getSession } from '../utils/auth';
 
 export default function LoginView({ onLogin }) {
   // Splash introduction animation state
@@ -91,9 +91,11 @@ export default function LoginView({ onLogin }) {
       );
 
       if (matchingDemo) {
-        const demoUser = loginAsDemo(matchingDemo.role);
+        const demoUser = formatAccount(matchingDemo);
         // Persist session so it survives reloads
-        sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(demoUser));
+        try {
+          sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(demoUser));
+        } catch (e) {}
         setIsSubmitting(false);
         onLogin(demoUser);
         return;
@@ -180,7 +182,13 @@ export default function LoginView({ onLogin }) {
   }, []);
 
   const handleDemoBypass = () => {
-    const user = loginAsDemo(selectedRole);
+    const matchingDemo = DEMO_ACCOUNTS.find(
+      (acc) => acc.email.toLowerCase() === identifier.trim().toLowerCase()
+    );
+    const user = matchingDemo ? formatAccount(matchingDemo) : loginAsDemo(selectedRole);
+    try {
+      sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(user));
+    } catch (e) {}
     onLogin(user);
   };
 
