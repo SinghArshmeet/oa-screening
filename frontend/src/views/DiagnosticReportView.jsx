@@ -831,7 +831,7 @@ export default function DiagnosticReportView({
                       </div>
                     </div>
 
-                    {xrayData.is_bilateral && (
+                    {xrayData.is_bilateral ? (
                       <div className="grid grid-cols-2 gap-2 mt-1">
                         <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px]">
                           <span className="font-bold text-cyan-400 font-data-mono">[R] Right Knee:</span>
@@ -840,6 +840,17 @@ export default function DiagnosticReportView({
                         <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
                           <span className="font-bold text-emerald-400 font-data-mono">[L] Left Knee:</span>
                           <p className="text-on-surface">KL {xrayData.left_knee?.kl_grade ?? 1} · JSW {xrayData.left_knee?.medial_jsw_mm ?? 3.9}mm ({xrayData.left_knee?.jsn_status ?? 'Preserved'})</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px]">
+                          <span className="font-bold text-cyan-400 font-data-mono">Medial Joint Space:</span>
+                          <p className="text-on-surface">KL {xrayData.kl_grade ?? 2} · JSW {xrayData.right_knee?.medial_jsw_mm ?? 2.8}mm (Definite Narrowing)</p>
+                        </div>
+                        <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
+                          <span className="font-bold text-emerald-400 font-data-mono">Lateral Joint Space:</span>
+                          <p className="text-on-surface">JSW {xrayData.right_knee?.lateral_jsw_mm ?? 5.1}mm (Preserved Space)</p>
                         </div>
                       </div>
                     )}
