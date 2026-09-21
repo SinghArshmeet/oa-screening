@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ROLES, getRoleConfig, isTabAllowedForRole } from '../utils/auth';
+import { ROLES, getRoleConfig, isTabAllowedForRole, getAccountsForRole } from '../utils/auth';
 
 export default function Header({
   activeTab,
@@ -50,6 +50,7 @@ export default function Header({
   const currentRoleId = currentUser?.roleId || (currentUser?.role?.toLowerCase().includes('officer') ? 'officer' : currentUser?.role?.toLowerCase().includes('admin') ? 'admin' : 'screener');
   
   const roleConfig = getRoleConfig(currentRoleId);
+  const roleAccounts = getAccountsForRole(currentRoleId);
 
   const allNavTabs = [
     { id: 'overview', label: 'Overview', icon: 'dashboard', fullTitle: 'Overview & Triage' },
@@ -318,10 +319,10 @@ export default function Header({
                   {!showRoleSelector ? (
                     <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
                       {roleAccounts.map((acc) => {
-                        const isCurrent = acc.email === currentUser?.email || acc.staffId === currentUser?.id;
+                        const isCurrent = acc.email === currentUser?.email || acc.staffId === currentUser?.staffId || acc.staffId === currentUser?.id || acc.id === currentUser?.id;
                         return (
                           <button
-                            key={acc.id}
+                            key={acc.id || acc.email}
                             type="button"
                             role="menuitem"
                             disabled={isCurrent}

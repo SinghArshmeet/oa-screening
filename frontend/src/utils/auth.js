@@ -249,21 +249,35 @@ export const DEMO_ACCOUNTS = [
   }
 ];
 
-export function loginAsDemo(roleId = 'screener') {
-  const account = DEMO_ACCOUNTS.find(a => a.role === roleId) || DEMO_ACCOUNTS[0];
-  const roleConfig = getRoleConfig(account.role);
+export function formatAccount(acc) {
+  if (!acc) return null;
+  const roleId = acc.roleId || acc.role || 'screener';
+  const roleConfig = getRoleConfig(roleId);
   return {
-    id: `demo-${account.role}-${Date.now()}`,
-    email: account.email,
-    name: account.name,
-    roleId: account.role,
+    id: acc.id || acc.staffId || `demo-${roleId}-${acc.email}`,
+    staffId: acc.staffId || 'NER-STAFF-01',
+    email: acc.email,
+    name: acc.name,
+    roleId: roleId,
     role: roleConfig.label,
     roleBadge: roleConfig.badge,
-    station: account.station,
-    staffId: account.staffId,
+    station: acc.station,
+    zone: acc.zone || 'Regional Hub',
     isDemo: true,
     profileCompleted: true
   };
+}
+
+export function getAccountsForRole(roleId) {
+  const cleanId = (roleId || 'screener').toLowerCase().trim();
+  return DEMO_ACCOUNTS
+    .filter(acc => acc.role === cleanId)
+    .map(formatAccount);
+}
+
+export function loginAsDemo(roleId = 'screener') {
+  const account = DEMO_ACCOUNTS.find(a => a.role === roleId) || DEMO_ACCOUNTS[0];
+  return formatAccount(account);
 }
 
 export function getStoredUser() {

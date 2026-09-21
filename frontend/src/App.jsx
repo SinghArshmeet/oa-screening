@@ -327,10 +327,16 @@ export default function App() {
 
   const handleLogin = (user) => {
     setCurrentUser(user);
+    try {
+      sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(user));
+    } catch (e) {}
   };
 
   const handleSwitchAccount = (newAccount) => {
     setCurrentUser(newAccount);
+    try {
+      sessionStorage.setItem('oa_ner_auth_session', JSON.stringify(newAccount));
+    } catch (e) {}
     const newRoleId = newAccount?.roleId || 'screener';
     if (!isTabAllowedForRole(newRoleId, activeTab)) {
       const defaultTab = getRoleConfig(newRoleId).defaultTab;
@@ -343,6 +349,9 @@ export default function App() {
       camera.stopCamera();
     }
     logoutUser();
+    try {
+      sessionStorage.removeItem('oa_ner_auth_session');
+    } catch (e) {}
     setCurrentUser(null);
     setPatients([]);
     setActivePatient(null);
