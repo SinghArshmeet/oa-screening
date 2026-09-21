@@ -752,19 +752,63 @@ export default function LoginView({ onLogin }) {
               )}
 
               {/* Demo Credentials Cheat-Sheet Card */}
-              <div className="mt-md p-xs px-sm rounded-xl bg-surface-container-low/60 border border-surface-container text-[11px] text-secondary">
-                <span className="font-semibold text-on-surface block mb-0.5">
-                  Frontline Trial Credentials:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 font-data-mono text-[10px]">
-                  <div>
-                    <span className="text-primary font-bold">Screener:</span> demo123
+              <div className="mt-md p-3 rounded-xl bg-surface-container-low/80 border border-surface-container text-[11px] text-secondary space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-on-surface flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-primary">badge</span>
+                    <span>National Trial & Hospital Credentials:</span>
+                  </span>
+                  <span className="text-[10px] font-data-mono text-tertiary font-semibold">Password: demo123</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                    Medical Officers & Orthopedic Consultants:
                   </div>
-                  <div>
-                    <span className="text-tertiary font-bold">MO:</span> demo123
+                  <div className="grid grid-cols-1 gap-1">
+                    {DEMO_ACCOUNTS.filter(a => a.role === 'officer').slice(0, 3).map((acc) => (
+                      <button
+                        key={acc.email}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole('officer');
+                          setIdentifier(acc.email);
+                          setPassword(acc.password);
+                          setErrorMessage('');
+                        }}
+                        className="w-full text-left p-1.5 px-2 rounded-lg bg-surface-container-lowest hover:bg-surface-container border border-surface-container flex items-center justify-between text-[11px] transition active:scale-[0.99]"
+                        title="Click to fill credentials"
+                      >
+                        <div className="truncate">
+                          <span className="font-bold text-primary font-data-mono">{acc.name}</span>
+                          <span className="text-secondary block text-[10px] truncate">{acc.station}</span>
+                        </div>
+                        <span className="text-[10px] font-data-mono text-secondary ml-2 shrink-0">{acc.email}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <span className="text-on-surface font-bold">Admin:</span> admin123
+
+                  <div className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider pt-1">
+                    Frontline Clinical Screeners & Admins:
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {DEMO_ACCOUNTS.filter(a => a.role !== 'officer').slice(0, 4).map((acc) => (
+                      <button
+                        key={acc.email}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole(acc.role);
+                          setIdentifier(acc.email);
+                          setPassword(acc.password);
+                          setErrorMessage('');
+                        }}
+                        className="text-left p-1.5 px-2 rounded-lg bg-surface-container-lowest hover:bg-surface-container border border-surface-container text-[11px] transition active:scale-[0.99] truncate"
+                        title="Click to fill credentials"
+                      >
+                        <div className="font-bold text-on-surface truncate text-[10px]">{acc.name}</div>
+                        <div className="text-secondary text-[9px] font-data-mono truncate">{acc.email}</div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

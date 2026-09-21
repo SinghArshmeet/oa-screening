@@ -152,29 +152,100 @@ export function formatSupabaseUser(user) {
 }
 
 export const DEMO_ACCOUNTS = [
-  {
-    role: 'screener',
-    email: 'screener@phc.assam.gov.in',
-    password: 'demo123',
-    name: 'S. Terangpi, ANM',
-    station: 'Diphu Civil Hospital Hub',
-    staffId: 'NER-SCR-1042'
-  },
+  // --- National Medical Officers & Orthopedic Specialists ---
   {
     role: 'officer',
     email: 'mo.sharma@gmch.gov.in',
     password: 'demo123',
-    name: 'Dr. R. Sharma, MO',
+    name: 'Dr. R. Sharma, MO (Orthopedics)',
     station: 'Guwahati Medical College & Hospital (GMCH)',
-    staffId: 'NER-MO-8841'
+    staffId: 'NER-MO-8841',
+    zone: 'North East'
   },
+  {
+    role: 'officer',
+    email: 'dr.verma@aiims.edu.in',
+    password: 'demo123',
+    name: 'Dr. A. Verma, Chief Orthopedic Consultant',
+    station: 'AIIMS New Delhi - Department of Orthopedics',
+    staffId: 'DEL-MO-1092',
+    zone: 'Northern Hub'
+  },
+  {
+    role: 'officer',
+    email: 'dr.kuldeep@safdarjung.gov.in',
+    password: 'demo123',
+    name: 'Dr. Kuldeep Singh, Senior Ortho Specialist',
+    station: 'Safdarjung Hospital OPD Unit, New Delhi',
+    staffId: 'DEL-MO-5421',
+    zone: 'Northern Hub'
+  },
+  {
+    role: 'officer',
+    email: 'dr.chatterjee@pgimer.edu.in',
+    password: 'demo123',
+    name: 'Dr. P. Chatterjee, Joint Arthroplasty Consultant',
+    station: 'PGIMER Chandigarh Specialty Clinic',
+    staffId: 'CHD-MO-3304',
+    zone: 'Northern Hub'
+  },
+  {
+    role: 'officer',
+    email: 'dr.menon@cmcvellore.ac.in',
+    password: 'demo123',
+    name: 'Dr. K. Menon, Musculoskeletal Research Lead',
+    station: 'CMC Vellore Telemedicine Center',
+    staffId: 'VEL-MO-7712',
+    zone: 'Southern Hub'
+  },
+
+  // --- Clinical Screeners & Triage Field Operators ---
+  {
+    role: 'screener',
+    email: 'screener@phc.assam.gov.in',
+    password: 'demo123',
+    name: 'S. Terangpi, ANM Triage Lead',
+    station: 'Diphu Civil Hospital Hub, Assam',
+    staffId: 'NER-SCR-1042',
+    zone: 'North East'
+  },
+  {
+    role: 'screener',
+    email: 'screener.delhi@safdarjung.gov.in',
+    password: 'demo123',
+    name: 'Priya Mehra, Community Health Officer',
+    station: 'Safdarjung OPD Hub, New Delhi',
+    staffId: 'DEL-SCR-2005',
+    zone: 'Northern Hub'
+  },
+  {
+    role: 'screener',
+    email: 'screener.pune@nhm.gov.in',
+    password: 'demo123',
+    name: 'Anil Kulkarni, Senior Field Screener',
+    station: 'Sub-District Hospital Pune, Maharashtra',
+    staffId: 'MH-SCR-3118',
+    zone: 'Western Hub'
+  },
+
+  // --- Regional & National System Administrators ---
   {
     role: 'admin',
     email: 'admin.diphu@icmr.gov.in',
     password: 'admin123',
-    name: 'Eng. K. Das, IT',
-    station: 'ICMR Regional RMRC Hub',
-    staffId: 'NER-ADM-9002'
+    name: 'Eng. K. Das, Regional IT Lead',
+    station: 'ICMR Regional RMRC Hub, Dibrugarh',
+    staffId: 'NER-ADM-9002',
+    zone: 'North East'
+  },
+  {
+    role: 'admin',
+    email: 'admin.national@icmr.gov.in',
+    password: 'admin123',
+    name: 'Dr. S. Nair, National Tele-Triage Network Admin',
+    station: 'ICMR Headquarters, New Delhi',
+    staffId: 'DEL-ADM-0010',
+    zone: 'Central Command'
   }
 ];
 
