@@ -45,7 +45,9 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
-COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+# Automatically enable secure cookies in production for cross-origin auth (Vercel to Render)
+is_production = "localhost" not in FRONTEND_ORIGIN and "127.0.0.1" not in FRONTEND_ORIGIN
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", str(is_production)).lower() == "true"
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "oa_ner_session_secret_lts")
 SESSION_MAX_AGE_SECONDS = 7 * 24 * 3600
 
