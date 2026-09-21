@@ -25,6 +25,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+    load_dotenv(PROJECT_ROOT / ".env")
+except Exception:
+    pass
+
 from oa_screening.movement_prediction import predict_video
 from oa_screening.risk_engine import combine_screening, recommendation_for
 from oa_screening.xray_model import XRayModelSpec
