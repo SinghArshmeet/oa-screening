@@ -667,7 +667,8 @@ export default function LoginView({ onLogin }) {
                       )}
                     </button>
 
-                    {/* Google Authentication Flow */}
+                    {/* Google Authentication Flow temporarily hidden */}
+                    {/*
                     <div className="pt-1">
                       <button
                         type="button"
@@ -702,6 +703,7 @@ export default function LoginView({ onLogin }) {
                         </div>
                       )}
                     </div>
+                    */}
 
                     {/* 1-Click Local Demo Mode Action */}
                     <div className="pt-2">
