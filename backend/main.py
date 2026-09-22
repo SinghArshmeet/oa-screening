@@ -437,8 +437,20 @@ def combine_analysis(payload: AnalysisRequest, _: dict[str, object] = Depends(re
     }
 
 
+@app.get("/health")
+@app.get("/api/health")
+def health_check() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "service": "OrthoNex India Biomechanical & Radiographic Screening API",
+        "model_loaded": MODEL_PATH.exists(),
+        "xray_model_loaded": XRAY_MODEL_PATH.exists(),
+        "clinical_model_loaded": CLINICAL_MODEL_PATH.exists(),
+    }
+
+
 @app.post("/api/xray/analyze")
-async def analyze_xray_image(file: UploadFile = File(...), user: dict[str, object] = Depends(require_authenticated_user)) -> dict[str, object]:
+async def analyze_xray_image(file: UploadFile = File(...), user: dict[str, object] | None = Depends(get_current_user_optional)) -> dict[str, object]:
     raw_filename = Path(file.filename or "").name
     suffix = Path(raw_filename).suffix.lower()
     if suffix not in ALLOWED_IMAGE_EXTENSIONS:

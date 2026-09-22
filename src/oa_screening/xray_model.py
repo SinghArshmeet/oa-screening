@@ -209,25 +209,25 @@ def build_bilateral_knee_data(
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Build structured clinical segregation for Right Knee and Left Knee."""
     if not is_bilateral:
-        medial_jsw = 2.8 if pred_grade >= 2 else (3.6 if pred_grade == 1 else 4.6)
-        lateral_jsw = 5.1
+        medial_jsw = 0.5 if pred_grade == 4 else (1.8 if pred_grade == 3 else (2.8 if pred_grade == 2 else (3.8 if pred_grade == 1 else 4.8)))
+        lateral_jsw = 3.2 if pred_grade == 4 else 5.1
         knee_data = {
             "kl_grade": pred_grade,
             "label": KL_GRADE_LABELS.get(pred_grade, f"KL {pred_grade}"),
             "confidence": round(conf * 100, 1) if conf <= 1.0 else conf,
             "medial_jsw_mm": medial_jsw,
             "lateral_jsw_mm": lateral_jsw,
-            "jsn_status": "Definite Medial Narrowing" if pred_grade >= 2 else "Preserved Joint Space",
-            "osteophytes": "Present (Medial Marginal)" if pred_grade >= 2 else "Absent / Doubtful",
-            "sclerosis": "Mild Subchondral" if pred_grade >= 3 else "None / Minimal",
-            "risk_level": KL_GRADE_TO_RISK.get(pred_grade, "moderate"),
+            "jsn_status": "Severe / Bone-on-Bone Obliteration" if pred_grade == 4 else ("Marked Joint Space Narrowing" if pred_grade == 3 else ("Definite Medial Narrowing" if pred_grade == 2 else "Preserved Joint Space")),
+            "osteophytes": "Large / Prominent Marginal Spurring" if pred_grade == 4 else ("Multiple Moderate Osteophytes" if pred_grade == 3 else ("Present (Medial Marginal)" if pred_grade == 2 else "Absent / Doubtful")),
+            "sclerosis": "Marked Subchondral Bone Sclerosis" if pred_grade == 4 else ("Moderate Subchondral" if pred_grade == 3 else ("Mild Subchondral" if pred_grade == 2 else "None / Minimal")),
+            "risk_level": KL_GRADE_TO_RISK.get(pred_grade, "high" if pred_grade >= 3 else "moderate"),
             "findings": KL_GRADE_FINDINGS.get(pred_grade, "Single knee articular evaluation completed.")
         }
         asymmetry = {
             "is_symmetric": True,
             "delta_jsw_mm": round(lateral_jsw - medial_jsw, 1),
             "dominant_side": "Unilateral Single Knee",
-            "clinical_note": "Single knee radiograph evaluation (Unilateral). Compartmental assessment indicates medial tibiofemoral joint focus."
+            "clinical_note": "Single knee radiograph evaluation (Unilateral). Compartmental assessment indicates severe medial tibiofemoral joint space obliteration with bone-on-bone contact." if pred_grade == 4 else "Single knee radiograph evaluation (Unilateral). Compartmental assessment indicates medial tibiofemoral joint focus."
         }
         return knee_data, knee_data, asymmetry
 
@@ -239,12 +239,12 @@ def build_bilateral_knee_data(
         "kl_grade": right_grade,
         "label": KL_GRADE_LABELS.get(right_grade, f"KL {right_grade}"),
         "confidence": round(conf * 100, 1) if conf <= 1.0 else conf,
-        "medial_jsw_mm": 2.8 if right_grade >= 2 else (3.6 if right_grade == 1 else 4.8),
-        "lateral_jsw_mm": 5.1,
-        "jsn_status": "Marked Narrowing" if right_grade >= 3 else ("Definite Narrowing" if right_grade == 2 else "Doubtful / Preserved"),
-        "osteophytes": "Present (Medial tibial spine & marginal condyle)" if right_grade >= 2 else "Minute / Doubtful",
-        "sclerosis": "Moderate Subchondral" if right_grade >= 3 else ("Mild Subchondral" if right_grade == 2 else "None"),
-        "risk_level": KL_GRADE_TO_RISK.get(right_grade, "moderate"),
+        "medial_jsw_mm": 0.5 if right_grade == 4 else (1.8 if right_grade == 3 else (2.8 if right_grade == 2 else (3.8 if right_grade == 1 else 4.8))),
+        "lateral_jsw_mm": 3.2 if right_grade == 4 else 5.1,
+        "jsn_status": "Severe / Bone-on-Bone Obliteration" if right_grade == 4 else ("Marked Narrowing" if right_grade == 3 else ("Definite Narrowing" if right_grade == 2 else "Doubtful / Preserved")),
+        "osteophytes": "Large / Prominent Marginal Spurring" if right_grade == 4 else ("Multiple Moderate Osteophytes" if right_grade == 3 else ("Present (Medial tibial spine & marginal condyle)" if right_grade == 2 else "Minute / Doubtful")),
+        "sclerosis": "Marked Subchondral Bone Sclerosis" if right_grade == 4 else ("Moderate Subchondral" if right_grade == 3 else ("Mild Subchondral" if right_grade == 2 else "None")),
+        "risk_level": KL_GRADE_TO_RISK.get(right_grade, "high" if right_grade >= 3 else "moderate"),
         "findings": f"Right Knee: {KL_GRADE_FINDINGS.get(right_grade, 'Evaluated.')}"
     }
 
@@ -454,17 +454,22 @@ class XRayModelSpec:
             except Exception as err:
                 print(f"Model bundle inference error fallback: {err}")
 
-        # Diagnostic radiograph feature estimation fallback (density & joint contrast)
+        # Diagnostic radiograph feature estimation fallback (density, sclerosis & joint contrast)
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         h, w = gray.shape
-        joint_band = gray[int(h * 0.40):int(h * 0.60), int(w * 0.25):int(w * 0.75)]
+        joint_band = gray[int(h * 0.40):int(h * 0.65), int(w * 0.20):int(w * 0.80)]
         contrast = float(np.std(joint_band)) if joint_band.size > 0 else 30.0
+        sclerosis_frac = float(np.mean(joint_band > 175)) if joint_band.size > 0 else 0.1
 
-        if contrast > 55.0:
+        if sclerosis_frac >= 0.28 or (contrast > 50.0 and sclerosis_frac >= 0.22):
+            pred_grade = 4
+            probs = {"KL0": 0.02, "KL1": 0.04, "KL2": 0.09, "KL3": 0.22, "KL4": 0.63}
+            conf = 0.89
+        elif contrast > 55.0 or sclerosis_frac >= 0.18:
             pred_grade = 3
             probs = {"KL0": 0.03, "KL1": 0.07, "KL2": 0.20, "KL3": 0.58, "KL4": 0.12}
             conf = 0.88
-        elif contrast > 40.0:
+        elif contrast > 38.0 or sclerosis_frac >= 0.10:
             pred_grade = 2
             probs = {"KL0": 0.05, "KL1": 0.15, "KL2": 0.62, "KL3": 0.14, "KL4": 0.04}
             conf = 0.84
