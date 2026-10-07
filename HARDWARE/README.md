@@ -242,6 +242,7 @@ For full schematics, timer allocation (`ESP32PWM::allocateTimer(1)`), pinout res
 | `Failed to connect to ESP32: Timed out` | GPIO 0 not grounded or wrong COM port | On MB shield: hold IO0 while clicking Upload. On FTDI: ensure GPIO 0 is connected to GND during boot. |
 | Camera connects to Wi-Fi but drops WebSocket | Weak 2.4GHz Wi-Fi signal or slow ping | Place module within 5m of Wi-Fi router. Note: ESP32 only supports **2.4 GHz** Wi-Fi networks (not 5 GHz). |
 | Flash LED stays on dim red | GPIO 33 status LED indicator | Normal operation: GPIO 33 is inverted logic (LOW = ON, HIGH = OFF). |
+| Module gets scorching hot and fails Wi-Fi / Flash | +5V connected to `3V3` pin instead of `5V` | ⚠️ Connect +5V to the **`5V` pin** so the onboard regulator safely steps it down. Connecting 5V directly to `3V3` bypasses regulation and burns the chip. |
 
 ---
 

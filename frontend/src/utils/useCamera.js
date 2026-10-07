@@ -19,7 +19,7 @@ export function useCamera(isAuthenticated = false) {
   const [sampleVideoUrl, setSampleVideoUrl] = useState(() => `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/sample_gait_walk.mp4`);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [showOverlay, setShowOverlay] = useState(false); // Default to clean feed without overlay
+  const [showOverlay, setShowOverlay] = useState(true); // Default to active biomechanical overlay with leg markers
   const [hudOpacity, setHudOpacity] = useState(85);
   const [isSecureContext, setIsSecureContext] = useState(true);
 

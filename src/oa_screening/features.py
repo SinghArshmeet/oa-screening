@@ -54,6 +54,8 @@ class PoseFeatureExtractor:
     def extract(self, video_path: str) -> dict[str, float]:
         capture = cv2.VideoCapture(video_path)
         fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
+        if fps <= 0 or not np.isfinite(fps):
+            fps = 30.0
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         stride = max(1, int(round(fps / self.sample_fps)))
         left_angles: list[float] = []
@@ -64,8 +66,8 @@ class PoseFeatureExtractor:
             static_image_mode=False,
             model_complexity=1,
             enable_segmentation=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
+            min_detection_confidence=0.45,
+            min_tracking_confidence=0.45,
         )
         try:
             frame_index = 0
@@ -88,12 +90,20 @@ class PoseFeatureExtractor:
                     return np.array([value.x, value.y], dtype=float)
 
                 ids = mp.solutions.pose.PoseLandmark
-                required = [ids.LEFT_HIP, ids.LEFT_KNEE, ids.LEFT_ANKLE, ids.RIGHT_HIP, ids.RIGHT_KNEE, ids.RIGHT_ANKLE]
-                if min(landmarks[i].visibility for i in required) < self.min_visibility:
+                left_req = [ids.LEFT_HIP, ids.LEFT_KNEE, ids.LEFT_ANKLE]
+                right_req = [ids.RIGHT_HIP, ids.RIGHT_KNEE, ids.RIGHT_ANKLE]
+                left_ok = min(landmarks[i].visibility for i in left_req) >= self.min_visibility
+                right_ok = min(landmarks[i].visibility for i in right_req) >= self.min_visibility
+
+                if not (left_ok or right_ok):
                     continue
                 detected += 1
-                left_angles.append(_angle(point(ids.LEFT_HIP), point(ids.LEFT_KNEE), point(ids.LEFT_ANKLE)))
-                right_angles.append(_angle(point(ids.RIGHT_HIP), point(ids.RIGHT_KNEE), point(ids.RIGHT_ANKLE)))
+                if left_ok:
+                    left_angles.append(_angle(point(ids.LEFT_HIP), point(ids.LEFT_KNEE), point(ids.LEFT_ANKLE)))
+                if right_ok:
+                    right_angles.append(_angle(point(ids.RIGHT_HIP), point(ids.RIGHT_KNEE), point(ids.RIGHT_ANKLE)))
+            if total_frames <= 0:
+                total_frames = frame_index
         finally:
             pose.close()
             capture.release()

@@ -1,3 +1,7 @@
+param(
+    [int]$Port = 0
+)
+
 $ErrorActionPreference = 'Stop'
 
 Set-Location $PSScriptRoot
@@ -7,27 +11,41 @@ if (-not (Test-Path $python)) {
     throw 'Project virtual environment not found. Create it with: py -m venv .venv'
 }
 
-$existing = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
-if ($existing) {
-    try {
-        $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
-        if ($health.status -eq 'ok') {
-            Write-Host 'OA-NER backend is already running at http://127.0.0.1:8000'
-            Write-Host 'API docs: http://127.0.0.1:8000/docs'
-            exit 0
+# Determine port: default to 8000, fallback to 8001 if 8000 is occupied by another service
+if ($Port -eq 0) {
+    $existing8000 = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+    if ($existing8000) {
+        try {
+            $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 1
+            if ($health.status -eq 'ok') {
+                Write-Host 'OA-NER backend is already running at http://127.0.0.1:8000'
+                Write-Host 'API docs: http://127.0.0.1:8000/docs'
+                exit 0
+            }
+            $Port = 8001
+        } catch {
+            Write-Host 'Port 8000 is occupied by another service. Falling back to port 8001...' -ForegroundColor Yellow
+            $Port = 8001
         }
-    } catch {
-        throw 'Port 8000 is occupied by another service. Stop it or choose another port.'
+    } else {
+        $Port = 8000
     }
 }
 
-# Supported environment variables:
-# $env:GOOGLE_CLIENT_ID     - Google OAuth Client ID
-# $env:GOOGLE_CLIENT_SECRET - Google OAuth Client Secret
-# $env:GOOGLE_REDIRECT_URI  - Google OAuth Redirect URI (default: http://localhost:8000/auth/google/callback)
-# $env:SESSION_SECRET       - Secret for session signatures
-# $env:FRONTEND_ORIGIN      - Frontend origin (default: http://localhost:5173)
-# $env:COOKIE_SECURE        - Set true in production HTTPS
+$existing = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($existing) {
+    try {
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 1
+        if ($health.status -eq 'ok') {
+            Write-Host "OA-NER backend is already running at http://127.0.0.1:$Port"
+            Write-Host "API docs: http://127.0.0.1:$Port/docs"
+            exit 0
+        }
+    } catch {
+        # Already handled
+    }
+}
 
-Write-Host 'Starting OA-NER Screening Backend at http://127.0.0.1:8000...'
-& $python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+Write-Host "Starting OA-NER Screening Backend at http://127.0.0.1:$Port..."
+& $python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port $Port
+

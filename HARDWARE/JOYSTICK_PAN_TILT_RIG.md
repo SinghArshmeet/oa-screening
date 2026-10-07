@@ -21,9 +21,9 @@ In clinical gait screening, an operator uses a physical analog joystick to smoot
   │                                     │                               ▼ Servo Horn
   │  5V     GND    A0                   │               ┌───────────────────────────────┐
   │                                     │               │       SG90 Servo Motor        │
-  │  Pin D9 (PWM Servo Signal)          ├──────────────>│ Orange: PWM Signal            │
+  │  Pin D10 (PWM Servo Signal)         ├──────────────>│ Yellow / Orange: PWM Signal   │
   │                                     │               │ Red:    5V (from L7805CV)     │
-  │                                     │               │ Black:  GND (Common)          │
+  │                                     │               │ Brown / Black: GND (Common)   │
   └─────────────────────────────────────┘               └───────────────────────────────┘
 ```
 
@@ -70,21 +70,19 @@ In clinical gait screening, an operator uses a physical analog joystick to smoot
 │ 5V Pin  ◄────────────────────┼──────────────┤ RED   (from 5V Rail) │                     │ VIN (from Switch +)  │◄──┘
 │ GND Pin ◄────────────────────┤              │ BLACK (Common GND)   │◄────────────────────┤ GND (Common GND)     │
 │                              │              │                      │                     │                      │
-│ [OV3660 / OV2640 CAMERA]     │              │ ORANGE (PWM Signal)  │◄────────────────────┤ Pin D9 (Servo PWM)   │
+│ [OV3660 / OV2640 CAMERA]     │              │ YELLOW/ORANGE (PWM)  │◄────────────────────┤ Pin D10 (Servo PWM)  │
 │ (Streams live video)         │              └──────────────────────┘                     │                      │
-└──────────────────────────────┘                                                           │ Pin A0 (VRx Input)   │◄──┐
+└──────────────────────────────┘                                                           │ Pin A0 (Pot Wiper)   │◄──┐
                                                                                            │ 5V Out               │──┐│
                                                                                            │ GND                  │─┐││
                                                                                            └──────────────────────┘ │││
                                                                                                                     │││
                                                                                            ┌──────────────────────┐ │││
-                                                                                           │   Single Joystick    │ │││
+                                                                                           │  B10k Potentiometer  │ │││
                                                                                            │                      │ │││
-                                                                                           │ VCC                  │◄─┘│
-                                                                                           │ GND                  │◄──┘
-                                                                                           │ VRx (X-Axis)         │───┘
-                                                                                           │ VRy (Not used / opt) │
-                                                                                           │ SW  (Not used)       │
+                                                                                           │ Leg 3 (+5V)          │◄─┘│
+                                                                                           │ Leg 1 (GND)          │◄──┘
+                                                                                           │ Leg 2 (Center Wiper) │───┘
                                                                                            └──────────────────────┘
 ```
 
@@ -109,78 +107,75 @@ In clinical gait screening, an operator uses a physical analog joystick to smoot
 |:---:|:---|:---|
 | **`5V` Pin** | **+5V Breadboard Rail** (from L7805CV) | Powers the Nano directly from regulated 5V |
 | **`GND` Pin** | **Common GND Breadboard Rail** | **CRITICAL:** Must be on GND rail for common ground return |
-| **`A0` Pin** | **Potentiometer Center Leg (Leg 2)** | Analog steering wiper signal |
-| **`D9` Pin** | **SG90 Servo ORANGE Wire** | High-speed 50Hz PWM servo signal |
+| **`A0` Pin** | **Potentiometer Center Leg (Leg 2)** | Analog steering wiper signal (0 - 1023) |
+| **`D10` Pin** | **SG90 Servo YELLOW / ORANGE Wire** | High-speed 50Hz PWM servo signal |
 
 ### C. B10k Potentiometer (Manual Steering Knob)
 | Potentiometer Leg | Connect To | Notes |
 |:---:|:---|:---|
-| **Leg 1 (Outer Left)** | **Common GND Rail** | Ground reference (Separate breadboard row) |
-| **Leg 2 (CENTER LEG)** | **Arduino Nano `A0` Pin** | Variable 0.68V - 5.00V steering voltage |
-| **Leg 3 (Outer Right)** | **+5V Power Rail** | High reference (Separate breadboard row) |
+| **Leg 1 (Outer Left)** | **Common GND Rail** | Ground reference |
+| **Leg 2 (CENTER LEG)** | **Arduino Nano `A0` Pin** | Variable 0.0V - 5.00V steering voltage |
+| **Leg 3 (Outer Right)** | **+5V Power Rail** | High reference (+5V) |
 
 ### D. SG90 Servo Motor
 | Servo Wire Color | Connect To | Notes |
 |:---:|:---|:---|
 | 🔴 **Red Wire** | **+5V Breadboard Rail** | Motor power (buffered by 220µF cap) |
 | 🟤 / ⚫ **Brown or Black Wire** | **Common GND Breadboard Rail** | Motor ground return |
-| 🟠 / 🟡 **Orange Wire** | **Arduino Nano `D9` Pin** | 50Hz PWM position signal |
+| 🟡 / 🟠 **Yellow or Orange Wire** | **Arduino Nano `D10` Pin** | 50Hz PWM position signal (Pin D10) |
 
 ### E. AI-Thinker ESP32-CAM (Untethered Video Streaming)
 | ESP32-CAM Pin | Connect To | Notes |
 |:---:|:---|:---|
-| **`5V` Pin** | **+5V Breadboard Rail** | Powers camera module & Wi-Fi |
+| **`5V` Pin** | **+5V Breadboard Rail** | Powers camera module & Wi-Fi via onboard AMS1117-3.3V |
 | **`GND` Pin** | **Common GND Breadboard Rail** | Common ground |
 | **`IO0` Pin** | **Leave Disconnected (Floating)** | Required for normal standalone boot |
+| **`3V3` Pin** | **DO NOT CONNECT (Leave Empty)** | ⚠️ **NEVER connect 5V to 3V3!** Doing so bypasses the regulator and causes severe overheating. |
 
 ---
 
-## 4. Arduino Nano Firmware
+## 4. Arduino Nano Firmware (Potentiometer Direct Mapping)
 
-You have two control mode choices in this sketch:
-- **Mode 1 (Proportional):** Tilting the joystick left tilts the camera left; letting go returns to center (90°).
-- **Mode 2 (Slew / Pan & Hold - Recommended for Gait Tracking):** Pushing the joystick left rotates the camera left; when you let go, **the camera stays at that angle** so you don't have to hold tension on the stick!
+This firmware reads the manual B10k potentiometer dial on analog pin `A0` and smoothly commands the SG90 pan servo on digital pin `D10`.
 
 ```cpp
 #include <Servo.h>
 
 Servo panServo;
 
-const int JOY_PIN = A0;     // Analog input from Joystick VRx
-const int SERVO_PIN = 9;    // Digital PWM output to SG90
-
-// Set to true for Pan & Hold (smooth tracking); false for Direct angle mapping
-const bool PAN_AND_HOLD_MODE = true; 
-
-float currentAngle = 90.0;  // Start centered (90 degrees)
+// --- Pin Assignments ---
+const int POT_PIN   = A0;  // Potentiometer Center Leg (Wiper) -> Pin A0
+const int SERVO_PIN = 10;  // Servo Signal (Yellow / Orange Wire) -> Pin D10 (Confirmed Working)
 
 void setup() {
   Serial.begin(115200);
-  panServo.attach(SERVO_PIN, 544, 2400); // Standard SG90 micro-servo range
-  panServo.write((int)currentAngle);
-  delay(500);
+  
+  // Attach SG90 servo on Pin 10 with standard pulse bounds (544us - 2400us)
+  panServo.attach(SERVO_PIN, 544, 2400);
+
+  Serial.println("==========================================");
+  Serial.println("  OrthoNex Potentiometer Servo Tracking   ");
+  Serial.println("==========================================");
 }
 
 void loop() {
-  int joyVal = analogRead(JOY_PIN); // 0 (Left) to 512 (Center) to 1023 (Right)
+  // 1. Read the 10-bit analog voltage from the potentiometer (0 to 1023)
+  int potVal = analogRead(POT_PIN);
 
-  if (PAN_AND_HOLD_MODE) {
-    // Mode 2: Deadzone in center (480 - 540)
-    int offset = joyVal - 512;
-    if (abs(offset) > 30) {
-      // Calculate smooth rotational speed based on how far stick is pushed
-      float speed = (float)offset / 350.0; // Adjustable speed factor
-      currentAngle += speed;
-      currentAngle = constrain(currentAngle, 10.0, 170.0); // Safe servo travel limits
-      panServo.write((int)currentAngle);
-    }
-    delay(20); // 50Hz update loop
-  } 
-  else {
-    // Mode 1: Direct 1-to-1 angle mapping
-    int targetAngle = map(joyVal, 0, 1023, 10, 170);
-    panServo.write(targetAngle);
-    delay(15);
-  }
+  // 2. Map the potentiometer to smooth servo angles (10 to 170 degrees)
+  // (Leaving 10 deg buffer on ends prevents the gears from hitting hard stops)
+  int targetAngle = map(potVal, 0, 1023, 10, 170);
+
+  // 3. Write position to servo
+  panServo.write(targetAngle);
+
+  // 4. Output to Serial Monitor for live verification (115200 baud)
+  Serial.print("Pot ADC (A0): ");
+  Serial.print(potVal);
+  Serial.print("  -->  Servo Angle (D10): ");
+  Serial.print(targetAngle);
+  Serial.println(" deg");
+
+  delay(20); // 50Hz update rate
 }
 ```

@@ -12,6 +12,8 @@
 #include <WiFiMulti.h>
 #include "esp_camera.h"
 #include <ArduinoWebsockets.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 using namespace websockets;
 
@@ -24,11 +26,8 @@ using namespace websockets;
 WiFiMulti wifiMulti;
 
 void setupWiFiNetworks() {
-  // Primary: Mobile Hotspot or Expo Wi-Fi
-  wifiMulti.addAP("YOUR_PRIMARY_SSID", "YOUR_PRIMARY_PASSWORD");
-  
-  // Secondary: Home / Lab Backup Wi-Fi
-  wifiMulti.addAP("YOUR_BACKUP_SSID", "YOUR_BACKUP_PASSWORD");
+  // Primary: User Wi-Fi network
+  wifiMulti.addAP("Paaji", "12345678");
 }
 
 // ==========================================
@@ -92,20 +91,12 @@ void initCamera() {
   config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  config.xclk_freq_hz = 10000000; // 10MHz prevents I2C / SCCB timeout
   config.pixel_format = PIXFORMAT_JPEG;
-
-  if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA;     // Crisp 640x480
-    config.jpeg_quality = 16;                // Zero-lag sweetspot (65% less data, low CPU encryption)
-    config.fb_count     = 2;
-    config.grab_mode    = CAMERA_GRAB_LATEST; // Always drop old queued frames, stream real-time!
-  } else {
-    config.frame_size   = FRAMESIZE_HVGA;    // 480x320
-    config.jpeg_quality = 16;
-    config.fb_count     = 1;
-    config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
-  }
+  config.frame_size   = FRAMESIZE_VGA;
+  config.jpeg_quality = 12;
+  config.fb_count     = 1;
+  config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
 
   Serial.println("[ESP-CAM] Initializing camera driver...");
   esp_err_t err = esp_camera_init(&config);
@@ -115,16 +106,7 @@ void initCamera() {
     ESP.restart();
   }
 
-  // Safe sensor configuration (checking function pointers)
-  sensor_t *s = esp_camera_sensor_get();
-  if (s != NULL) {
-    if (s->set_vflip) s->set_vflip(s, 1);
-    if (s->set_brightness) s->set_brightness(s, 1);
-    if (s->set_contrast) s->set_contrast(s, 1);
-    if (s->set_saturation) s->set_saturation(s, 0);
-  }
-
-  Serial.println("[ESP-CAM] Camera initialized with low-latency VGA presets!");
+  Serial.println("[ESP-CAM] Camera initialized successfully!");
 }
 
 void onMessageCallback(WebsocketsMessage msg) {
@@ -202,6 +184,9 @@ void connectToCloud() {
 }
 
 void setup() {
+  // Disable brownout detector to prevent restart loops on battery / power bank
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
   Serial.begin(115200);
   Serial.println("\n================================================");
   Serial.println("  OrthoNex India — ESP32-CAM Crisp Cloud Relay  ");
@@ -209,21 +194,33 @@ void setup() {
 
   // Setup Flash LED
   pinMode(LED_GPIO_NUM, OUTPUT);
+  
+  // Instant Power-On Blink: Confirms CPU booted & switch is ON
+  digitalWrite(LED_GPIO_NUM, HIGH);
+  delay(150);
+  digitalWrite(LED_GPIO_NUM, LOW);
   setFlash(false);
 
-  // Initialize Camera
-  initCamera();
-
-  // Setup Multi-WiFi Networks
-  setupWiFiNetworks();
-  
+  // 1. Connect to Wi-Fi first (calibrates power rail before camera starts)
+  WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  WiFi.setTxPower(WIFI_POWER_19_5dBm); // Maximum RF Transmit Power (19.5 dBm)
-  Serial.println("[ESP-CAM] Scanning and connecting to best Wi-Fi network...");
+  WiFi.setTxPower(WIFI_POWER_17dBm); // Safe power level to prevent brownouts
+  Serial.println("[ESP-CAM] Connecting to Wi-Fi: Paaji");
 
-  while (wifiMulti.run() != WL_CONNECTED) {
+  WiFi.begin("Paaji", "12345678");
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    attempts++;
+    if (attempts % 20 == 0) {
+      Serial.printf("\n[ESP-CAM] Still connecting to Wi-Fi (status: %d)...\n", WiFi.status());
+      // Re-trigger association if initial burst missed
+      WiFi.disconnect();
+      delay(200);
+      WiFi.begin("Paaji", "12345678");
+    }
   }
 
   Serial.println("\n[ESP-CAM] Wi-Fi Connected Successfully!");
@@ -232,7 +229,14 @@ void setup() {
   Serial.print("[ESP-CAM] Local IP Address: ");
   Serial.println(WiFi.localIP());
 
-  // Connect to Cloud WebSocket
+  // Confirm Wi-Fi connection with brief flash blinks
+  setFlash(true); delay(100); setFlash(false); delay(100);
+  setFlash(true); delay(100); setFlash(false);
+
+  // 2. Initialize Camera (on fully stabilized power)
+  initCamera();
+
+  // 3. Connect to Cloud WebSocket Relay
   connectToCloud();
 }
 
@@ -240,7 +244,7 @@ void loop() {
   if (client.available()) {
     client.poll();
 
-    // Stream video frame every 50ms (~20 FPS)
+    // Stream video frame every 40ms (~25 FPS)
     unsigned long now = millis();
     if (now - lastFrameTime >= TARGET_FRAME_DELAY_MS) {
       lastFrameTime = now;
@@ -253,8 +257,8 @@ void loop() {
       }
     }
   } else {
-    // Retry connection if dropped (keeps checking Multi-WiFi)
-    if (wifiMulti.run() == WL_CONNECTED) {
+    // Retry connection if dropped (keeps checking Wi-Fi status)
+    if (WiFi.status() == WL_CONNECTED) {
       delay(2000);
       connectToCloud();
     } else {

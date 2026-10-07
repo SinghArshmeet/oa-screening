@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { usePoseTracker } from '../utils/usePoseTracker';
 
 export default function CameraViewport({
   camera,
@@ -18,8 +19,18 @@ export default function CameraViewport({
 }) {
   const videoRef = useRef(null);
   const sampleVideoRef = useRef(null);
+  const canvasRef = useRef(null);
   const [videoDim, setVideoDim] = useState({ w: 1280, h: 720 });
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const activeVideoRef = camera.sourceMode === 'sample' ? sampleVideoRef : videoRef;
+  const poseTracker = usePoseTracker({
+    videoRef: activeVideoRef,
+    canvasRef,
+    isActive: camera.isWebcamActive || camera.sourceMode === 'sample',
+    showOverlay: camera.showOverlay,
+    opacity: camera.hudOpacity
+  });
 
   // Sync stream to video element
   useEffect(() => {
@@ -115,6 +126,16 @@ export default function CameraViewport({
           className="absolute inset-0 w-full h-full object-contain z-0 bg-black"
         />
       )}
+
+      {/* 2.8. Real-Time MediaPipe Leg Marker & Biomechanical Canvas Overlay */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          opacity: camera.showOverlay ? camera.hudOpacity / 100 : 0,
+          display: (camera.isWebcamActive || camera.sourceMode === 'sample') ? 'block' : 'none'
+        }}
+        className="absolute inset-0 w-full h-full object-cover z-5 pointer-events-none transition-opacity duration-200"
+      />
 
       {/* 3. Inactive Standby Card */}
       {!camera.isWebcamActive && camera.sourceMode !== 'sample' && !(camera.sourceMode === 'upload' && camera.uploadedVideoUrl) && (
@@ -247,52 +268,24 @@ export default function CameraViewport({
         </div>
       </div>
 
-      {/* 6. Center Biomechanical Skeleton & Angle Reticle (Only when feed is active AND overlay is enabled) */}
+      {/* 6. Precision Calibration Guides & Dynamic Pose Status */}
       {(camera.isWebcamActive || camera.sourceMode === 'sample' || camera.sourceMode === 'upload') && camera.showOverlay && (
-        <div className="relative z-10 flex-1 flex items-center justify-center my-xs overflow-hidden pointer-events-none">
-          <div className="relative w-80 sm:w-96 h-[240px] flex items-center justify-center">
-            {/* Corner Brackets */}
-            <div className="absolute inset-0 rounded-xl bg-primary-container/5">
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-tertiary-fixed-dim"></div>
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-tertiary-fixed-dim"></div>
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-tertiary-fixed-dim"></div>
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-tertiary-fixed-dim"></div>
-            </div>
+        <div className="relative z-10 flex-1 flex flex-col justify-between my-xs overflow-hidden pointer-events-none">
+          <div className="absolute inset-4 rounded-xl border border-white/5 pointer-events-none">
+            <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-tertiary-fixed-dim"></div>
+            <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-tertiary-fixed-dim"></div>
+            <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-tertiary-fixed-dim"></div>
+            <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-tertiary-fixed-dim"></div>
+          </div>
 
-            {/* Skeleton SVG */}
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 320 220">
-              <defs>
-                <filter id="glow-shared-cam" height="140%" width="140%" x="-20%" y="-20%">
-                  <feGaussianBlur stdDeviation="3" result="glow" />
-                  <feMerge>
-                    <feMergeNode in="glow" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <line x1="160" y1="40" x2="155" y2="90" stroke="#acedff" strokeWidth="4" filter="url(#glow-shared-cam)" />
-              <circle cx="160" cy="30" r="10" fill="#ffffff" stroke="#007bb9" strokeWidth="3" />
-              <line x1="155" y1="90" x2="145" y2="140" stroke="#93ccff" strokeDasharray="5,4" strokeWidth="3" />
-              <line x1="145" y1="140" x2="140" y2="190" stroke="#93ccff" strokeDasharray="5,4" strokeWidth="3" />
-              <line x1="155" y1="90" x2="175" y2="142" stroke="#4cd7f6" strokeWidth="4" filter="url(#glow-shared-cam)" />
-              <line x1="175" y1="142" x2="185" y2="195" stroke="#4cd7f6" strokeWidth="4" filter="url(#glow-shared-cam)" />
-              <line x1="185" y1="195" x2="200" y2="200" stroke="#acedff" strokeWidth="4" />
-              <circle cx="155" cy="90" r="6" fill="#ffffff" stroke="#007bb9" strokeWidth="2" />
-              <circle cx="175" cy="142" r="8" fill="#4cd7f6" stroke="#ffffff" strokeWidth="3" filter="url(#glow-shared-cam)" />
-              <circle cx="185" cy="195" r="6" fill="#ffffff" stroke="#006577" strokeWidth="2" />
-              <line x1="40" y1="205" x2="280" y2="205" stroke="#4cd7f6" strokeDasharray="8,6" strokeWidth="2" opacity="0.6" />
-            </svg>
-
-            {/* Real-time Angle Callout Chips */}
-            <div className="absolute right-4 top-20 bg-black/80 text-white px-2.5 py-1 rounded shadow-md border-l-2 border-tertiary-fixed-dim">
-              <span className="font-data-mono text-[12px] font-bold text-tertiary-fixed">KNEE: {kinematics.kneeAngle}°</span>
-              <span className="block font-label-sm text-[9px] text-surface-dim">Peak Flexion</span>
-            </div>
-            <div className="absolute left-6 top-16 bg-black/80 text-white px-2 py-1 rounded shadow-md">
-              <span className="font-data-mono text-[11px] font-semibold text-primary-fixed">HIP: {kinematics.hipAngle}°</span>
-            </div>
-            <div className="absolute right-6 bottom-4 bg-black/80 text-white px-2 py-1 rounded shadow-md">
-              <span className="font-data-mono text-[11px] font-semibold text-white">ANKLE: {kinematics.ankleAngle}°</span>
+          <div className="flex items-center justify-between pointer-events-none">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-data-mono">
+              <span className={`w-2 h-2 rounded-full ${
+                poseTracker?.trackingStatus === 'tracking' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              }`}></span>
+              <span className="text-surface-bright font-bold">
+                {poseTracker?.trackingStatus === 'tracking' ? 'MEDIAPIPE 33-POINT POSE ACTIVE' : 'CALIBRATING POSE SKELETON...'}
+              </span>
             </div>
           </div>
         </div>
