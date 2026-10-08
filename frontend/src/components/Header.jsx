@@ -275,7 +275,7 @@ export default function Header({
                         )}
                       </div>
                       <p className="text-[11px] text-surface-dim truncate mt-0.5 font-data-mono">
-                        {currentUser?.email || 'screener@phc.assam.gov.in'}
+                        {currentUser?.email || 'screener@demo.orthonex.in'}
                       </p>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-primary/40 text-primary-fixed text-[10px] font-semibold shrink-0">

@@ -14,7 +14,7 @@ export const ROLES = {
     badge: 'Station Screener',
     icon: 'assignment_ind',
     description: 'Patient enrollment, 8s gait capture, and KOOS-NER questionnaire triage.',
-    defaultEmail: 'screener@phc.assam.gov.in',
+    defaultEmail: 'screener@demo.orthonex.in',
     defaultName: 'S. Terangpi, ANM'
   },
   officer: {
@@ -24,7 +24,7 @@ export const ROLES = {
     badge: 'Medical Officer',
     icon: 'medical_services',
     description: 'Diagnostic review, KL-grade radiographic estimates, and teleconsult sign-off.',
-    defaultEmail: 'mo.sharma@gmch.gov.in',
+    defaultEmail: 'mo.sharma@demo.orthonex.in',
     defaultName: 'Dr. R. Sharma, MO'
   },
   admin: {
@@ -34,7 +34,7 @@ export const ROLES = {
     badge: 'System Admin',
     icon: 'admin_panel_settings',
     description: 'ESP32 hardware fleet management, offline mesh synchronization, and audit logs.',
-    defaultEmail: 'admin.diphu@icmr.gov.in',
+    defaultEmail: 'admin.diphu@demo.orthonex.in',
     defaultName: 'Eng. K. Das, IT'
   }
 };
@@ -152,10 +152,10 @@ export function formatSupabaseUser(user) {
 }
 
 export const DEMO_ACCOUNTS = [
-  // --- National Medical Officers & Orthopedic Specialists ---
+  // --- Demonstration Medical Officers & Orthopedic Consultants ---
   {
     role: 'officer',
-    email: 'mo.sharma@gmch.gov.in',
+    email: 'mo.sharma@demo.orthonex.in',
     password: 'demo123',
     name: 'Dr. R. Sharma, MO (Orthopedics)',
     station: 'Guwahati Medical College & Hospital (GMCH)',
@@ -164,45 +164,45 @@ export const DEMO_ACCOUNTS = [
   },
   {
     role: 'officer',
-    email: 'dr.verma@aiims.edu.in',
+    email: 'dr.verma@demo.orthonex.in',
     password: 'demo123',
     name: 'Dr. A. Verma, Chief Orthopedic Consultant',
-    station: 'AIIMS New Delhi - Department of Orthopedics',
+    station: 'Delhi Orthopedic Referral Hub',
     staffId: 'DEL-MO-1092',
     zone: 'Northern Hub'
   },
   {
     role: 'officer',
-    email: 'dr.kuldeep@safdarjung.gov.in',
+    email: 'dr.kuldeep@demo.orthonex.in',
     password: 'demo123',
     name: 'Dr. Kuldeep Singh, Senior Ortho Specialist',
-    station: 'Safdarjung Hospital OPD Unit, New Delhi',
+    station: 'Safdarjung Specialty OPD Unit, New Delhi',
     staffId: 'DEL-MO-5421',
     zone: 'Northern Hub'
   },
   {
     role: 'officer',
-    email: 'dr.chatterjee@pgimer.edu.in',
+    email: 'dr.chatterjee@demo.orthonex.in',
     password: 'demo123',
     name: 'Dr. P. Chatterjee, Joint Arthroplasty Consultant',
-    station: 'PGIMER Chandigarh Specialty Clinic',
+    station: 'Chandigarh Joint Care Clinic',
     staffId: 'CHD-MO-3304',
     zone: 'Northern Hub'
   },
   {
     role: 'officer',
-    email: 'dr.menon@cmcvellore.ac.in',
+    email: 'dr.menon@demo.orthonex.in',
     password: 'demo123',
     name: 'Dr. K. Menon, Musculoskeletal Research Lead',
-    station: 'CMC Vellore Telemedicine Center',
+    station: 'Vellore Tele-Rehabilitation Unit',
     staffId: 'VEL-MO-7712',
     zone: 'Southern Hub'
   },
 
-  // --- Clinical Screeners & Triage Field Operators ---
+  // --- Demonstration Clinical Screeners & Triage Field Operators ---
   {
     role: 'screener',
-    email: 'screener@phc.assam.gov.in',
+    email: 'screener@demo.orthonex.in',
     password: 'demo123',
     name: 'S. Terangpi, ANM Triage Lead',
     station: 'Diphu Civil Hospital Hub, Assam',
@@ -211,7 +211,7 @@ export const DEMO_ACCOUNTS = [
   },
   {
     role: 'screener',
-    email: 'screener.delhi@safdarjung.gov.in',
+    email: 'screener.delhi@demo.orthonex.in',
     password: 'demo123',
     name: 'Priya Mehra, Community Health Officer',
     station: 'Safdarjung OPD Hub, New Delhi',
@@ -220,7 +220,7 @@ export const DEMO_ACCOUNTS = [
   },
   {
     role: 'screener',
-    email: 'screener.pune@nhm.gov.in',
+    email: 'screener.pune@demo.orthonex.in',
     password: 'demo123',
     name: 'Anil Kulkarni, Senior Field Screener',
     station: 'Sub-District Hospital Pune, Maharashtra',
@@ -228,22 +228,22 @@ export const DEMO_ACCOUNTS = [
     zone: 'Western Hub'
   },
 
-  // --- Regional & National System Administrators ---
+  // --- Demonstration Regional & National System Administrators ---
   {
     role: 'admin',
-    email: 'admin.diphu@icmr.gov.in',
+    email: 'admin.diphu@demo.orthonex.in',
     password: 'admin123',
     name: 'Eng. K. Das, Regional IT Lead',
-    station: 'ICMR Regional RMRC Hub, Dibrugarh',
+    station: 'NER Regional Tele-Triage Hub, Dibrugarh',
     staffId: 'NER-ADM-9002',
     zone: 'North East'
   },
   {
     role: 'admin',
-    email: 'admin.national@icmr.gov.in',
+    email: 'admin.national@demo.orthonex.in',
     password: 'admin123',
     name: 'Dr. S. Nair, National Tele-Triage Network Admin',
-    station: 'ICMR Headquarters, New Delhi',
+    station: 'National Tele-Triage Coordination Hub, New Delhi',
     staffId: 'DEL-ADM-0010',
     zone: 'Central Command'
   }

@@ -11,7 +11,7 @@ export default function LoginView({ onLogin }) {
 
   // Sign In State (Default to Medical Officer for full Expo access to Reports & X-Rays)
   const [selectedRole, setSelectedRole] = useState('officer');
-  const [identifier, setIdentifier] = useState('mo.sharma@gmch.gov.in');
+  const [identifier, setIdentifier] = useState('mo.sharma@demo.orthonex.in');
   const [password, setPassword] = useState('demo123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -463,7 +463,7 @@ export default function LoginView({ onLogin }) {
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="e.g., dr.baruah@gmch.gov.in"
+                      placeholder="e.g., dr.baruah@demo.orthonex.in"
                       className="w-full bg-surface-container-low text-on-surface placeholder:text-outline text-xs rounded-xl px-3 py-2 border border-surface-container focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition"
                     />
                   </div>
@@ -596,7 +596,7 @@ export default function LoginView({ onLogin }) {
                           setIdentifier(e.target.value);
                           if (errorMessage) setErrorMessage('');
                         }}
-                        placeholder="e.g., screener@phc.assam.gov.in"
+                        placeholder="e.g., screener@demo.orthonex.in"
                         className="w-full bg-surface-container-low text-on-surface placeholder:text-outline text-xs rounded-xl pl-10 pr-3 py-2.5 border border-surface-container focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition"
                       />
                     </div>
@@ -764,7 +764,7 @@ export default function LoginView({ onLogin }) {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-on-surface flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[15px] text-primary">badge</span>
-                    <span>National Trial & Hospital Credentials:</span>
+                    <span>Evaluator & Demonstration Profiles:</span>
                   </span>
                   <span className="text-[10px] font-data-mono text-tertiary font-semibold">Password: demo123</span>
                 </div>
@@ -905,7 +905,7 @@ export default function LoginView({ onLogin }) {
                     </h3>
                   </div>
                   <p className="font-body-sm text-secondary text-xs leading-relaxed">
-                    Instant 1-click clinical dossier transfer to orthopedic specialist faculties at AIIMS New Delhi, PGIMER Chandigarh, CMC Vellore, KEM Mumbai, and GMCH Guwahati.
+                    Standardized tele-referral dossier export formatted for tertiary orthopedic centres (including AIIMS New Delhi, PGIMER Chandigarh, CMC Vellore, KEM Mumbai, and GMCH Guwahati).
                   </p>
                 </div>
               </div>
@@ -922,7 +922,7 @@ export default function LoginView({ onLogin }) {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-on-surface">OrthoNex AI Musculoskeletal Platform</span>
             <span>·</span>
-            <span>ICMR-RMRC North East Joint Tele-Screening Initiative</span>
+            <span>Aligned with ICMR Frontline Triage Guidelines & NER Musculoskeletal Care Standards</span>
           </div>
           <div className="flex items-center gap-md">
             <span className="italic text-secondary font-normal">
@@ -966,7 +966,7 @@ export default function LoginView({ onLogin }) {
               <div className="p-sm rounded-lg bg-surface-container border border-surface-container-high space-y-1">
                 <div className="font-semibold text-on-surface">Station IT Desk (Karbi Anglong Hub):</div>
                 <div className="font-data-mono text-[11px]">Phone / Intercom: Ext. 204 (03671-272210)</div>
-                <div className="font-data-mono text-[11px]">Station Admin: admin.diphu@icmr.gov.in</div>
+                <div className="font-data-mono text-[11px]">Station Admin: admin.diphu@demo.orthonex.in</div>
                 <div className="text-[10px] text-secondary">Hours: 08:00 - 18:00 IST (Mon-Sat)</div>
               </div>
               <p className="text-[11px]">

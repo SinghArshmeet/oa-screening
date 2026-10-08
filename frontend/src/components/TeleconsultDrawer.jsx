@@ -441,7 +441,7 @@ export default function TeleconsultDrawer({ isOpen, onClose, activePatient, scre
               </span>
             </div>
             <span className="font-label-sm text-[10px] text-tertiary-fixed block mt-0.5">
-              ABDM Certified Government & Super Speciality Hospitals
+              ABDM-Empanelled Public & Tertiary Referral Centers
             </span>
           </div>
         </div>
@@ -607,7 +607,7 @@ export default function TeleconsultDrawer({ isOpen, onClose, activePatient, scre
           Delhi / Noida Triage Helpline: 104 / 102
         </span>
         <span className="font-label-sm text-[10px] text-primary font-bold">
-          ABDM / PM-JAY Certified
+          ABDM / PM-JAY Empanelled Facility
         </span>
       </div>
     </aside>

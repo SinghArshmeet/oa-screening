@@ -72,7 +72,7 @@ export default function HardwareFleetView({ currentUser, onNavigate, camera }) {
             </span>
             <span className="inline-flex items-center gap-1 px-xs py-1 rounded bg-tertiary-fixed font-data-mono text-[11px] text-on-tertiary-fixed">
               <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
-              ESP-MESH PROTOCOL v4.1
+              TLS WEBSOCKET RELAY (WSS)
             </span>
           </div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">
@@ -94,7 +94,7 @@ export default function HardwareFleetView({ currentUser, onNavigate, camera }) {
             <span className={`material-symbols-outlined text-[18px] text-secondary ${isScanning ? 'animate-spin' : ''}`}>
               sync
             </span>
-            {isScanning ? 'Scanning Bus...' : 'Scan Mesh Bus'}
+            {isScanning ? 'Scanning Bus...' : 'Scan Field Nodes'}
           </button>
           <button
             onClick={() => {

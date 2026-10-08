@@ -1265,24 +1265,24 @@ export default function DiagnosticReportView({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
-                    Official Registered Medical Officer Sign-Off Validated
+                    Registered Medical Practitioner (RMP) Clinical Review Recorded
                   </span>
                   <span className="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-data-mono uppercase font-bold">
-                    NMC / State Council Certified
+                    RMP Triage Attestation
                   </span>
                 </div>
                 <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-0.5">
                   Attested by <strong className="underline">{currentUser?.name || 'Medical Officer'}</strong> ({currentUser?.station || 'Assam Frontline Health Network'}). Staff ID: <code className="font-bold">{currentUser?.staffId || 'NER-MO-8841'}</code>.
                 </p>
                 <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-data-mono mt-1">
-                  Digital Timestamp: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} IST · Cryptographic Token: <code>OA-SIG-{activePatient?.id || 'IND-0101'}-VERIFIED</code>
+                  Digital Timestamp: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} IST · Digital Audit Reference: <code>OA-TRIAGE-{activePatient?.id || 'IND-0101'}</code>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
               <span className="text-[11px] font-data-mono font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-600/30 px-2.5 py-1.5 rounded-lg bg-white/40 dark:bg-black/20">
-                STATUS: DISPATCH READY
+                STATUS: REFERRAL DOSSIER READY
               </span>
             </div>
           </div>
@@ -1341,14 +1341,14 @@ export default function DiagnosticReportView({
               {currentUser?.name || 'Dr. Medical Officer, MBBS'}
             </div>
             <span className="text-[10px] text-slate-500 font-data-mono">
-              Reg. No: {currentUser?.staffId || 'NMC-NER-2024-8841'} · Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              Staff / Reg. ID: {currentUser?.staffId || 'NER-MO-8841'} · Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
 
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-400 rounded-lg w-44 h-24 p-2 text-center text-[10px] text-slate-600">
             <span className="font-bold uppercase text-[9px] tracking-widest text-slate-400 mb-1">Official Seal</span>
             <span className="font-bold">{currentUser?.station || 'CHC / Health Sub-Centre'}</span>
-            <span className="font-data-mono text-[8px] text-slate-500 mt-1">NATIONAL HEALTH MISSION · ABDM</span>
+            <span className="font-data-mono text-[8px] text-slate-500 mt-1">ABDM-ALIGNED TRIAGE DOSSIER · NHM FRAMEWORK</span>
           </div>
 
           <div className="flex flex-col gap-1 w-64 text-right">
@@ -1356,7 +1356,7 @@ export default function DiagnosticReportView({
             <div className="h-10 border-b border-dashed border-slate-400 flex items-end justify-end pb-1 text-[10px] text-slate-400 italic">
               Signature & Stamp upon Referral Intake
             </div>
-            <span className="text-[10px] text-slate-500 font-data-mono">AIIMS / PGIMER / GMCH Orthopaedics OPD</span>
+            <span className="text-[10px] text-slate-500 font-data-mono">Tertiary Specialty Orthopaedics OPD</span>
           </div>
         </div>
       </div>

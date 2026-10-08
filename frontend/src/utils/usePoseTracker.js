@@ -933,10 +933,10 @@ export function usePoseTracker({
       detectionRate: detectionRate,
       confidence: avgConfidence,
       accuracyTier: avgConfidence >= 90 && detectionRate >= 0.80
-        ? 'Clinical High Precision (MediaPipe 33-point Pose)'
+        ? 'High Optical Tracking Confidence (MediaPipe 33-point Pose)'
         : avgConfidence >= 75
-        ? 'Standard Precision Tracking'
-        : 'Marginal Quality (Reposition Subject)'
+        ? 'Standard Optical Tracking'
+        : 'Low Landmark Visibility (Reposition Subject)'
     };
   }, []);
 

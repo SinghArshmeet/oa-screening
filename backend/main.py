@@ -122,12 +122,12 @@ def get_current_user_optional(
         role_badge = "Station Screener" if role_clean == "screener" else "Medical Officer" if role_clean == "officer" else "System Admin"
         return {
             "id": 99,
-            "email": x_user_email or f"{role_clean}@phc.assam.gov.in",
+            "email": x_user_email or f"{role_clean}@demo.orthonex.in",
             "name": x_user_name or f"Authorized {role_label}",
             "role": role_label,
             "role_id": role_clean,
             "role_badge": role_badge,
-            "station": x_user_station or ("Diphu PHC" if role_clean == "screener" else "GMCH Ortho Unit" if role_clean == "officer" else "ICMR Telemetry Hub"),
+            "station": x_user_station or ("Diphu PHC" if role_clean == "screener" else "GMCH Ortho Unit" if role_clean == "officer" else "NER Telemetry Hub"),
             "staff_id": f"NER-{role_clean.upper()}-01"
         }
     return None

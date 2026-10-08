@@ -36,7 +36,7 @@ async function authFetch(url, options = {}) {
   if (!headers.has('Authorization') && !headers.has('X-User-Role')) {
     headers.set('X-User-Role', 'screener');
     headers.set('X-User-Station', 'Frontline Triage Station');
-    headers.set('X-User-Email', 'screener@phc.assam.gov.in');
+    headers.set('X-User-Email', 'screener@demo.orthonex.in');
     headers.set('X-User-Name', 'Clinical Screener');
   }
   return fetch(url, { ...options, headers });
@@ -872,7 +872,7 @@ export async function analyzeVideoFile(fileOrBlob, filename = 'webcam_gait_sessi
     screening_tier: screeningTier,
     screening_positive_prob: isHighRisk ? 0.88 : isModRisk ? 0.68 : 0.05,
     confidence: confidenceScore,
-    accuracy_tier: clientMetrics?.accuracyTier || 'Clinical High Precision (MediaPipe 33-point Pose)',
+    accuracy_tier: clientMetrics?.accuracyTier || 'High Optical Tracking Confidence (MediaPipe 33-point Pose)',
     probabilities: {
       low: category === 'low' ? 0.95 : 0.05,
       early: category === 'moderate' ? 0.45 : 0.10,

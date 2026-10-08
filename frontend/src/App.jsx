@@ -494,7 +494,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-on-surface">OrthoNex AI Musculoskeletal Triage Platform</span>
             <span>·</span>
-            <span>ICMR-RMRC North East Joint Tele-Screening Initiative</span>
+            <span>Aligned with ICMR Frontline Triage Guidelines & NER Musculoskeletal Care Standards</span>
           </div>
           <div className="flex items-center gap-md">
             <span className="font-data-mono text-secondary">Sync Node: Diphu-PHC-04</span>

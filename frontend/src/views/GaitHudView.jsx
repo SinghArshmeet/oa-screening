@@ -309,7 +309,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
         screeningTier: result.screening_tier || (result.category === 'low' ? 'Screen Negative (Low Risk)' : 'Screen Positive (Suspected OA)'),
         screeningPositiveProb: result.screening_positive_prob !== undefined ? result.screening_positive_prob : (result.category === 'low' ? 0.05 : 0.85),
         confidence: Math.round(((result.confidence ?? clientMetrics?.confidence ?? 0.88) > 1 ? (result.confidence ?? clientMetrics?.confidence) : (result.confidence ?? clientMetrics?.confidence ?? 0.88) * 100)),
-        accuracyTier: clientMetrics?.accuracyTier || 'Clinical High Precision (MediaPipe 33-point Pose)',
+        accuracyTier: clientMetrics?.accuracyTier || 'High Optical Tracking Confidence (MediaPipe 33-point Pose)',
         cadence: Math.round(result.features?.left_knee_frequency_cpm || clientMetrics?.cadence || kinematics.cadence),
         velocity: kinematics.velocity,
         strideLength: kinematics.strideLength,
