@@ -742,6 +742,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
           autoPlay
           playsInline
           muted
+          crossOrigin="anonymous"
           onLoadedMetadata={(e) => {
             e.target.defaultMuted = true;
             e.target.muted = true;
@@ -763,6 +764,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
           <img
             key="espcam-live-stream-img"
             ref={espImgRef}
+            crossOrigin="anonymous"
             src={camera.espFrameBlobUrl || camera.espStreamUrl}
             alt="ESP32-CAM Live Feed"
             style={{
@@ -785,6 +787,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
           loop
           playsInline
           muted
+          crossOrigin="anonymous"
           style={{
             opacity: camera.sourceMode === 'sample' ? camera.hudOpacity / 100 : 0,
             display: camera.sourceMode === 'sample' ? 'block' : 'none'
@@ -801,6 +804,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
             playsInline
             autoPlay
             loop
+            crossOrigin="anonymous"
             style={{
               opacity: camera.hudOpacity / 100
             }}
@@ -813,9 +817,9 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
           ref={canvasRef}
           style={{
             opacity: camera.showOverlay ? camera.hudOpacity / 100 : 0,
-            display: (camera.isWebcamActive || camera.sourceMode === 'sample' || (camera.sourceMode === 'upload' && camera.uploadedVideoUrl)) ? 'block' : 'none'
+            display: (camera.isWebcamActive || camera.sourceMode === 'sample' || camera.sourceMode === 'espcam' || (camera.sourceMode === 'upload' && camera.uploadedVideoUrl)) ? 'block' : 'none'
           }}
-          className="absolute inset-0 w-full h-full object-cover z-5 pointer-events-none transition-opacity duration-200"
+          className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none transition-opacity duration-200"
         />
 
         {/* Layer 3: Idle / Standby Canvas when neither is active */}
@@ -973,15 +977,19 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
                 <span className={`w-2 h-2 rounded-full ${
                   poseTracker?.trackingStatus === 'tracking'
                     ? 'bg-emerald-400 animate-pulse'
+                    : poseTracker?.trackingStatus === 'framing'
+                    ? 'bg-cyan-400 animate-pulse'
                     : poseTracker?.trackingStatus === 'out_of_frame'
-                    ? 'bg-amber-400 animate-ping'
+                    ? 'bg-amber-400'
                     : 'bg-white/40'
                 }`}></span>
                 <span className="text-surface-bright font-bold">
                   {poseTracker?.trackingStatus === 'tracking'
                     ? 'MEDIAPIPE 33-POINT POSE ACTIVE'
+                    : poseTracker?.trackingStatus === 'framing'
+                    ? 'BODY LOCKED · FRAME LEGS FOR GAIT'
                     : poseTracker?.trackingStatus === 'out_of_frame'
-                    ? 'FRAME LEGS (STAND 2.5M BACK)'
+                    ? 'POSITION SUBJECT IN CAMERA VIEW'
                     : 'CALIBRATING OPTICAL POSE...'}
                 </span>
               </div>

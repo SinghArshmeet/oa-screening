@@ -81,6 +81,7 @@ export default function CameraViewport({
         autoPlay
         playsInline
         muted
+        crossOrigin="anonymous"
         onLoadedMetadata={(e) => {
           e.target.defaultMuted = true;
           e.target.muted = true;
@@ -103,6 +104,7 @@ export default function CameraViewport({
         loop
         playsInline
         muted
+        crossOrigin="anonymous"
         style={{
           opacity: camera.sourceMode === 'sample' ? camera.hudOpacity / 100 : 0,
           display: camera.sourceMode === 'sample' ? 'block' : 'none'
@@ -120,6 +122,7 @@ export default function CameraViewport({
           playsInline
           autoPlay
           loop
+          crossOrigin="anonymous"
           style={{
             opacity: camera.hudOpacity / 100
           }}
@@ -134,7 +137,7 @@ export default function CameraViewport({
           opacity: camera.showOverlay ? camera.hudOpacity / 100 : 0,
           display: (camera.isWebcamActive || camera.sourceMode === 'sample') ? 'block' : 'none'
         }}
-        className="absolute inset-0 w-full h-full object-cover z-5 pointer-events-none transition-opacity duration-200"
+        className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none transition-opacity duration-200"
       />
 
       {/* 3. Inactive Standby Card */}
