@@ -26,8 +26,8 @@ using namespace websockets;
 WiFiMulti wifiMulti;
 
 void setupWiFiNetworks() {
-  // Primary: User Wi-Fi network
-  wifiMulti.addAP("Paaji", "12345678");
+  // Primary: User Wi-Fi network (Configure with your local Wi-Fi SSID and Password)
+  wifiMulti.addAP("YOUR_WIFI_SSID", "YOUR_WIFI_PASSWORD");
 }
 
 // ==========================================

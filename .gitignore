@@ -48,6 +48,7 @@ artifacts/OrthoNex_IEEE_Paper.tex
 # Auxiliary experiments, test sketches & duplicate archive files
 models_and_python_files/
 ESP-cam/test_wifi_cam/
+ESP-cam/legacy_backup/
 HARDWARE/Arduino_Nano_Potentiometer_Servo/
 scratch/
 *.log
