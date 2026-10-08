@@ -66,7 +66,7 @@
           │  - Multimodal Convergence Formula (Risk Index 0-100%)   │
           │  - Dynamic 1-Click Clinical Prescription Macros         │
           │  - 25-Hospital Indian Tertiary Referral Network         │
-          │  - Official ABDM / NHM Printable Tele-Referral Dossier   │
+          │  - Official ABDM / NHM Printable Tele-Referral Dossier  │
           │    (Physician Attestation, Reg No, & Health Centre Seal)│
           └─────────────────────────────────────────────────────────┘
 ```
