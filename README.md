@@ -127,26 +127,34 @@ The clinical risk stratification engine executes a weighted late-fusion converge
 
 $$\text{Combined Risk Index } (R) = \begin{cases} 0.35 \cdot K + 0.30 \cdot S + 0.35 \cdot X & \text{if Radiograph Staged} \\ 0.55 \cdot K + 0.45 \cdot S & \text{if Frontline Optical Only} \end{cases}$$
 
-### Module Scoring Formulations:
+### Module Scoring Formulations
 
-1. **Kinematic Deficit Score ($K \in [0, 100]$):**
-   $$K = \min\left(100, \left(\frac{\Delta\text{Asymmetry}}{18} \times 45\right) + P_v + P_c + P_{\text{coronal}}\right)$$
-   * $P_v$ (Velocity Penalty): $25$ if $v \le 0.7\text{ m/s}$, $18$ if $v \le 0.9$, $10$ if $v \le 1.1$, $4$ otherwise.
-   * $P_c$ (Cadence Penalty): $18$ if $\text{CPM} < 92$, $10$ if $\text{CPM} < 102$, $4$ otherwise.
-   * $P_{\text{coronal}}$: $15$ if Genu Varum or Genu Valgum present; $0$ if normal neutral axis.
+#### 1. Kinematic Deficit Score ($K \in [0, 100]$)
 
-2. **Symptom Burden Score ($S \in [0, 100]$):**
-   $$S = \min\left(100, \left(\frac{\text{VAS Pain}}{10} \times 45\right) + P_{\text{stiff}} + P_{\text{age}} + P_{\text{work}} + 1.5 \cdot (\text{Diff}_{\text{walk}} + \text{Diff}_{\text{stairs}})\right)$$
-   * $P_{\text{stiff}}$: $20$ if stiffness $\ge 45\text{ min}$, $15$ if $\ge 30$, $10$ if $\ge 15$, $3$ otherwise.
-   * $P_{\text{age}}$: $15$ if age $\ge 65$, $10$ if $\ge 55$, $5$ if $\ge 45$, $2$ otherwise.
-   * $P_{\text{work}}$: $12$ for heavy manual occupation (squatting, agricultural labor, tea plucking); $4$ otherwise.
+$$K = \min\left(100, \left(\frac{\Delta\text{Asymmetry}}{18} \times 45\right) + P_v + P_c + P_{\text{coronal}}\right)$$
 
-3. **Radiographic Staging Score ($X \in [0, 100]$):**
-   * **KL Grade 0:** $8$ (Normal Joint Mechanics)
-   * **KL Grade 1:** $24$ (Doubtful JSN, Possible Osteophytes)
-   * **KL Grade 2:** $50$ (Definite Osteophytes, Mild JSN)
-   * **KL Grade 3:** $76$ (Multiple Moderate Osteophytes, Marked JSN)
-   * **KL Grade 4:** $98$ (Severe Joint Space Loss, Marked Subchondral Sclerosis)
+* **$P_v$ (Velocity Penalty):** $25$ if $v \le 0.7\text{ m/s}$; $18$ if $v \le 0.9\text{ m/s}$; $10$ if $v \le 1.1\text{ m/s}$; $4$ otherwise.
+* **$P_c$ (Cadence Penalty):** $18$ if $\text{CPM} < 92$; $10$ if $\text{CPM} < 102$; $4$ otherwise.
+* **$P_{\text{coronal}}$ (Axis Penalty):** $15$ if Genu Varum or Genu Valgum malalignment detected; $0$ if normal neutral axis.
+
+#### 2. Symptom Burden Score ($S \in [0, 100]$)
+
+$$S = \min\left(100, \left(\frac{\text{VAS Pain}}{10} \times 45\right) + P_{\text{stiff}} + P_{\text{age}} + P_{\text{work}} + 1.5 \cdot \left(\text{Diff}_{\text{walk}} + \text{Diff}_{\text{stairs}}\right)\right)$$
+
+* **$P_{\text{stiff}}$ (Morning Gel Stiffness):** $20$ if stiffness $\ge 45\text{ min}$; $15$ if $\ge 30\text{ min}$; $10$ if $\ge 15\text{ min}$; $3$ otherwise.
+* **$P_{\text{age}}$ (Age Factor):** $15$ if age $\ge 65$; $10$ if $\ge 55$; $5$ if $\ge 45$; $2$ otherwise.
+* **$P_{\text{work}}$ (Occupational Load):** $12$ for heavy manual occupation (squatting, agricultural labor, tea plucking); $4$ otherwise.
+* **$\text{Diff}_{\text{walk}}, \text{Diff}_{\text{stairs}}$:** KOOS-India functional mobility impairment ratings ($0\text{ to }4$).
+
+#### 3. Radiographic Staging Score ($X \in [0, 100]$)
+
+| Kellgren-Lawrence Grade | Severity Score ($X$) | Clinical Articular Indication |
+|:---|:---:|:---|
+| **KL Grade 0** | **`8`** | Normal joint mechanics & preserved articular space |
+| **KL Grade 1** | **`24`** | Doubtful joint space narrowing, possible osteophytic lipping |
+| **KL Grade 2** | **`50`** | Definite osteophytes, mild medial/lateral joint space narrowing |
+| **KL Grade 3** | **`76`** | Multiple moderate osteophytes, marked joint space narrowing |
+| **KL Grade 4** | **`98`** | Severe joint space loss, marked subchondral bone sclerosis |
 
 ### Triage Risk Stratification:
 * **High Risk ($R \ge 65.0\%$):** *Screen Positive (Suspected OA)* — Marked uncompensated mechanical loading and high-burden symptom presentation. Trigger urgent tertiary tele-referral.
