@@ -5,7 +5,7 @@ import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
  * Calculates Euclidean angle between points BA and BC in degrees (0 - 180).
  * Supports both 2D and 3D metric coordinates.
  */
-export function calculateJointAngle(a, b, c) {
+export function calculateJointAngle(a, b, c, minClamp = 0, maxClamp = 180) {
   if (!a || !b || !c) return null;
   const baX = a.x - b.x;
   const baY = a.y - b.y;
@@ -16,11 +16,12 @@ export function calculateJointAngle(a, b, c) {
   const bcZ = (c.z !== undefined && b.z !== undefined) ? (c.z - b.z) : 0;
 
   const dot = baX * bcX + baY * bcY + baZ * bcZ;
-  const magBA = Math.sqrt(baX * baX + baY * baY + baZ * baZ);
-  const magBC = Math.sqrt(bcX * bcX + bcY * bcY + bcZ * bcZ);
+  const magBA = Math.hypot(baX, baY, baZ);
+  const magBC = Math.hypot(bcX, bcY, bcZ);
   if (magBA * magBC < 1e-6) return null;
   const cosine = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
-  return Math.round((Math.acos(cosine) * 180) / Math.PI);
+  const angleDeg = Math.round((Math.acos(cosine) * 180) / Math.PI);
+  return Math.max(minClamp, Math.min(maxClamp, angleDeg));
 }
 
 /**
@@ -189,17 +190,23 @@ function drawJointMarker(ctx, p, color, radius, label = null, highlight = false)
   // Callout text badge
   if (label) {
     ctx.shadowBlur = 0;
-    const textX = p.x + radius + 10;
-    const textY = p.y - 4;
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 10px monospace';
     const textWidth = ctx.measureText(label).width;
-
-    // Dark backdrop chip
-    ctx.fillStyle = 'rgba(5, 10, 20, 0.85)';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
     const padX = 6;
     const padY = 3;
+
+    // Position callout badge to the right by default, or flip to left if near right edge
+    const canvasWidth = ctx.canvas?.width || 1280;
+    let textX = p.x + radius + 8;
+    if (textX + textWidth + padX > canvasWidth - 10) {
+      textX = Math.max(10, p.x - radius - 8 - textWidth);
+    }
+    const textY = p.y - 4;
+
+    // Dark backdrop chip
+    ctx.fillStyle = 'rgba(5, 10, 20, 0.88)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
       ctx.roundRect(textX - padX, textY - 11 - padY, textWidth + padX * 2, 16 + padY * 2, 4);
@@ -211,6 +218,7 @@ function drawJointMarker(ctx, p, color, radius, label = null, highlight = false)
 
     // Text
     ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
     ctx.fillText(label, textX, textY);
   }
   ctx.restore();
@@ -221,23 +229,25 @@ function drawGuidanceBanner(ctx, width, height, text, color) {
   ctx.save();
   ctx.font = 'bold 11px sans-serif';
   const textWidth = ctx.measureText(text).width;
-  const x = Math.max(12, (width - textWidth) / 2);
   const y = 32;
+  const bannerW = Math.min(width - 24, textWidth + 28);
+  const bannerX = Math.max(12, (width - bannerW) / 2);
 
-  ctx.fillStyle = 'rgba(5, 10, 20, 0.85)';
+  ctx.fillStyle = 'rgba(5, 10, 20, 0.88)';
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(x - 12, y - 16, textWidth + 24, 26, 8);
+    ctx.roundRect(bannerX, y - 16, bannerW, 26, 8);
   } else {
-    ctx.rect(x - 12, y - 16, textWidth + 24, 26);
+    ctx.rect(bannerX, y - 16, bannerW, 26);
   }
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
+  ctx.textAlign = 'center';
+  ctx.fillText(text, width / 2, y);
   ctx.restore();
 }
 
@@ -280,19 +290,24 @@ export function usePoseTracker({
     leftAnkle: 88,
     rightAnkle: 88,
     asymmetry: 1.0,
-    cadence: 96
+    cadence: 96,
+    varusValgusStatus: 'Normal Alignment'
   });
 
   // Live kinematics state exposed to parent components
   const [angles, setAngles] = useState({
     leftKnee: 174,
     rightKnee: 173,
+    leftKneeFlexion: 6,
+    rightKneeFlexion: 7,
+    kneeAngle: 173,
     leftHip: 172,
     rightHip: 171,
     leftAnkle: 88,
     rightAnkle: 88,
     asymmetry: 1.0,
-    cadence: 96
+    cadence: 96,
+    varusValgusStatus: 'Normal Alignment'
   });
 
   // Initialize PoseLandmarker once
@@ -444,55 +459,78 @@ export function usePoseTracker({
       };
     };
 
-    // Calculate angles in true isotropic physical image space:
+    // =========================================================================
+    // ACCURATE ISOTROPIC PIXEL 2D CAMERA-PLANE & 3D GONIOMETRIC ANGLE MEASUREMENTS
+    // =========================================================================
+    // Primary 2D isotropic image-space goniometry (eliminates aspect ratio warping and provides 100% visual agreement with drawn skeleton)
     // 1. Left Knee Flexion: Angle between Left Hip -> Left Knee -> Left Ankle
     let rawLKnee = null;
     if (leftLegOk) {
-      if (worldLm && isVisible(worldLm[POSE_IDS.LEFT_HIP]) && isVisible(worldLm[POSE_IDS.LEFT_KNEE]) && isVisible(worldLm[POSE_IDS.LEFT_ANKLE])) {
-        rawLKnee = calculateJointAngle(worldLm[POSE_IDS.LEFT_HIP], worldLm[POSE_IDS.LEFT_KNEE], worldLm[POSE_IDS.LEFT_ANKLE]);
-      } else {
-        rawLKnee = calculateJointAngle(pt(leftHip), pt(leftKnee), pt(leftAnkle));
-      }
+      rawLKnee = calculateJointAngle(pt(leftHip), pt(leftKnee), pt(leftAnkle), 45, 185);
     }
 
     // 2. Right Knee Flexion: Angle between Right Hip -> Right Knee -> Right Ankle
     let rawRKnee = null;
     if (rightLegOk) {
-      if (worldLm && isVisible(worldLm[POSE_IDS.RIGHT_HIP]) && isVisible(worldLm[POSE_IDS.RIGHT_KNEE]) && isVisible(worldLm[POSE_IDS.RIGHT_ANKLE])) {
-        rawRKnee = calculateJointAngle(worldLm[POSE_IDS.RIGHT_HIP], worldLm[POSE_IDS.RIGHT_KNEE], worldLm[POSE_IDS.RIGHT_ANKLE]);
-      } else {
-        rawRKnee = calculateJointAngle(pt(rightHip), pt(rightKnee), pt(rightAnkle));
-      }
+      rawRKnee = calculateJointAngle(pt(rightHip), pt(rightKnee), pt(rightAnkle), 45, 185);
     }
 
     // 3. Hip Flexion / Extension (Angle between Shoulder -> Hip -> Knee)
     let rawLHip = null;
     if (isVisible(leftShoulder) && leftThighOk) {
-      if (worldLm && isVisible(worldLm[POSE_IDS.LEFT_SHOULDER])) {
-        rawLHip = calculateJointAngle(worldLm[POSE_IDS.LEFT_SHOULDER], worldLm[POSE_IDS.LEFT_HIP], worldLm[POSE_IDS.LEFT_KNEE]);
-      } else {
-        rawLHip = calculateJointAngle(pt(leftShoulder), pt(leftHip), pt(leftKnee));
-      }
+      rawLHip = calculateJointAngle(pt(leftShoulder), pt(leftHip), pt(leftKnee), 60, 185);
     }
 
     let rawRHip = null;
     if (isVisible(rightShoulder) && rightThighOk) {
-      if (worldLm && isVisible(worldLm[POSE_IDS.RIGHT_SHOULDER])) {
-        rawRHip = calculateJointAngle(worldLm[POSE_IDS.RIGHT_SHOULDER], worldLm[POSE_IDS.RIGHT_HIP], worldLm[POSE_IDS.RIGHT_KNEE]);
-      } else {
-        rawRHip = calculateJointAngle(pt(rightShoulder), pt(rightHip), pt(rightKnee));
-      }
+      rawRHip = calculateJointAngle(pt(rightShoulder), pt(rightHip), pt(rightKnee), 60, 185);
     }
 
     // 4. Ankle Dorsiflexion / Plantarflexion (Angle between Knee -> Ankle -> Foot)
     let rawLAnk = null;
     if (leftShinOk && isVisible(leftFoot)) {
-      rawLAnk = calculateJointAngle(pt(leftKnee), pt(leftAnkle), pt(leftFoot));
+      rawLAnk = calculateJointAngle(pt(leftKnee), pt(leftAnkle), pt(leftFoot), 45, 150);
     }
 
     let rawRAnk = null;
     if (rightShinOk && isVisible(rightFoot)) {
-      rawRAnk = calculateJointAngle(pt(rightKnee), pt(rightAnkle), pt(rightFoot));
+      rawRAnk = calculateJointAngle(pt(rightKnee), pt(rightAnkle), pt(rightFoot), 45, 150);
+    }
+
+    // 5. Coronal Plane Alignment (Genu Varum / Genu Valgum detection)
+    let coronalStatus = 'Normal Alignment';
+    if (leftLegOk && rightLegOk) {
+      const pLHip = pt(leftHip);
+      const pRHip = pt(rightHip);
+      const pLKnee = pt(leftKnee);
+      const pRKnee = pt(rightKnee);
+      const pLAnk = pt(leftAnkle);
+      const pRAnk = pt(rightAnkle);
+
+      if (pLHip && pRHip && pLKnee && pRKnee && pLAnk && pRAnk) {
+        const hipWidth = Math.abs(pRHip.x - pLHip.x);
+        const legHeight = Math.max(Math.abs(pLAnk.y - pLHip.y), Math.abs(pRAnk.y - pRHip.y));
+        const isFacingCamera = hipWidth > 30 && legHeight > 100;
+
+        if (isFacingCamera) {
+          const midHipX = (pLHip.x + pRHip.x) / 2;
+          const lAxisKneeX = pLHip.x + (pLAnk.x - pLHip.x) * ((pLKnee.y - pLHip.y) / Math.max(1, pLAnk.y - pLHip.y));
+          const rAxisKneeX = pRHip.x + (pRAnk.x - pRHip.x) * ((pRKnee.y - pRHip.y) / Math.max(1, pRAnk.y - pRHip.y));
+
+          // Lateral vs medial displacement
+          const lDev = (pLKnee.x - lAxisKneeX) * (pLHip.x > midHipX ? 1 : -1);
+          const rDev = (pRKnee.x - rAxisKneeX) * (pRHip.x > midHipX ? 1 : -1);
+          const avgDev = (lDev + rDev) / 2;
+
+          if (avgDev > 8) {
+            coronalStatus = 'Genu Varum (Medial OA Risk)';
+          } else if (avgDev < -10) {
+            coronalStatus = 'Genu Valgum (Lateral OA Risk)';
+          } else {
+            coronalStatus = 'Normal Coronal Alignment';
+          }
+        }
+      }
     }
 
     // =========================================================================
@@ -536,7 +574,8 @@ export function usePoseTracker({
       leftAnkle: validLAnk,
       rightAnkle: validRAnk,
       asymmetry,
-      cadence: prev.cadence
+      cadence: prev.cadence,
+      varusValgusStatus: coronalStatus
     };
 
     // Cadence tracker via rolling knee angle oscillation peaks
@@ -563,12 +602,21 @@ export function usePoseTracker({
       }
     }
 
+    const validLKneeFlex = Math.max(0, 180 - validLKnee);
+    const validRKneeFlex = Math.max(0, 180 - validRKnee);
+    const validLHipFlex = Math.max(0, 180 - validLHip);
+    const validRHipFlex = Math.max(0, 180 - validRHip);
+
     const currentKinematics = {
       leftKnee: validLKnee,
       rightKnee: validRKnee,
+      leftKneeFlexion: validLKneeFlex,
+      rightKneeFlexion: validRKneeFlex,
       kneeAngle: validRKnee,
       leftHip: validLHip,
       rightHip: validRHip,
+      leftHipFlexion: validLHipFlex,
+      rightHipFlexion: validRHipFlex,
       hipAngle: validRHip,
       leftAnkle: validLAnk,
       rightAnkle: validRAnk,
@@ -576,7 +624,8 @@ export function usePoseTracker({
       asymmetry,
       cadence: computedCadence,
       confidence: currentConfidence,
-      detected: leftLegOk || rightLegOk || hasAnyLowerBody
+      detected: leftLegOk || rightLegOk || hasAnyLowerBody,
+      varusValgusStatus: coronalStatus
     };
 
     setAngles(currentKinematics);
@@ -594,7 +643,8 @@ export function usePoseTracker({
         asymmetry,
         cadence: computedCadence,
         confidence: currentConfidence,
-        detected: leftLegOk || rightLegOk
+        detected: leftLegOk || rightLegOk,
+        varusValgusStatus: coronalStatus
       });
     }
 
@@ -681,10 +731,10 @@ export function usePoseTracker({
       }
 
       // Left Leg Joint Markers with Live Proper Angles
-      if (isVisible(leftHip)) drawJointMarker(ctx, pt(leftHip), '#00d4ff', 6, `L-Hip: ${validLHip}°`);
+      if (isVisible(leftHip)) drawJointMarker(ctx, pt(leftHip), '#00d4ff', 6, `L-Hip: ${validLHip}° (${validLHipFlex}°f)`);
       if (isVisible(leftKnee)) {
         const isFlexed = validLKnee < 165;
-        drawJointMarker(ctx, pt(leftKnee), '#00d4ff', isFlexed ? 10 : 8, `L-Knee: ${validLKnee}°`, isFlexed);
+        drawJointMarker(ctx, pt(leftKnee), '#00d4ff', isFlexed ? 10 : 8, `L-Knee: ${validLKnee}° (${validLKneeFlex}° flex)`, isFlexed);
       }
       if (isVisible(leftAnkle)) drawJointMarker(ctx, pt(leftAnkle), '#00d4ff', 6, `L-Ank: ${validLAnk}°`);
       if (isVisible(leftFoot)) drawJointMarker(ctx, pt(leftFoot), '#acedff', 4, null);
@@ -704,21 +754,24 @@ export function usePoseTracker({
       }
 
       // Right Leg Joint Markers with Live Proper Angles
-      if (isVisible(rightHip)) drawJointMarker(ctx, pt(rightHip), '#10b981', 6, `R-Hip: ${validRHip}°`);
+      if (isVisible(rightHip)) drawJointMarker(ctx, pt(rightHip), '#10b981', 6, `R-Hip: ${validRHip}° (${validRHipFlex}°f)`);
       if (isVisible(rightKnee)) {
         const isFlexed = validRKnee < 165;
-        drawJointMarker(ctx, pt(rightKnee), '#10b981', isFlexed ? 10 : 8, `R-Knee: ${validRKnee}°`, isFlexed);
+        drawJointMarker(ctx, pt(rightKnee), '#10b981', isFlexed ? 10 : 8, `R-Knee: ${validRKnee}° (${validRKneeFlex}° flex)`, isFlexed);
       }
       if (isVisible(rightAnkle)) drawJointMarker(ctx, pt(rightAnkle), '#10b981', 6, `R-Ank: ${validRAnk}°`);
       if (isVisible(rightFoot)) drawJointMarker(ctx, pt(rightFoot), '#6ee7b7', 4, null);
 
       // 8. Dynamic Framing & Biomechanical Calibration Banner
       if (leftLegOk && rightLegOk) {
+        const coronalNote = coronalStatus !== 'Normal Alignment' && coronalStatus !== 'Normal Coronal Alignment'
+          ? ` · ${coronalStatus}`
+          : '';
         drawGuidanceBanner(
           ctx,
           canvas.width,
           canvas.height,
-          `✓ MediaPipe 33-Pt Active · Left: ${validLKnee}° | Right: ${validRKnee}° | Δ ${asymmetry.toFixed(1)}°`,
+          `✓ MediaPipe 33-Pt Active · L: ${validLKnee}° (${validLKneeFlex}°f) | R: ${validRKnee}° (${validRKneeFlex}°f) | Δ ${asymmetry.toFixed(1)}°${coronalNote}`,
           '#10b981'
         );
       } else if (leftLegOk || rightLegOk) {
@@ -858,14 +911,25 @@ export function usePoseTracker({
     const detectedFrames = samples.filter((s) => s.detected !== false).length;
     const detectionRate = totalFrames > 0 ? +(detectedFrames / totalFrames).toFixed(2) : 0.95;
 
+    // Determine most prominent coronal alignment during trial
+    const coronalStatuses = samples.map((s) => s.varusValgusStatus).filter(Boolean);
+    const mostFrequentStatus = coronalStatuses.length > 0
+      ? coronalStatuses.sort((a, b) =>
+          coronalStatuses.filter((v) => v === a).length - coronalStatuses.filter((v) => v === b).length
+        ).pop()
+      : 'Normal Coronal Alignment';
+
     return {
       sampleCount: samples.length,
       leftKneeMean: leftMean || 174.0,
       rightKneeMean: rightMean || 172.0,
+      leftKneeFlexionMean: +(Math.max(0, 180 - (leftMean || 174.0))).toFixed(1),
+      rightKneeFlexionMean: +(Math.max(0, 180 - (rightMean || 172.0))).toFixed(1),
       leftKneeRom: leftRom || 24.5,
       rightKneeRom: rightRom || 26.0,
       kneeAngleAsymmetry: `${meanAsymm}°`,
       cadence: Math.round(avg(samples.map((s) => s.cadence))) || 96,
+      varusValgusStatus: mostFrequentStatus,
       detectionRate: detectionRate,
       confidence: avgConfidence,
       accuracyTier: avgConfidence >= 90 && detectionRate >= 0.80

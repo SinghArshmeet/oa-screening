@@ -318,6 +318,7 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
         rightKneeAngle: `${Math.round(rMean)}°`,
         leftRom: clientMetrics?.leftKneeRom ? `${clientMetrics.leftKneeRom}°` : undefined,
         rightRom: clientMetrics?.rightKneeRom ? `${clientMetrics.rightKneeRom}°` : undefined,
+        coronalAlignment: clientMetrics?.varusValgusStatus || 'Normal Coronal Alignment',
         affectedLimb: affectedLimb,
         recommendation: result.recommendation,
         poseDetectionRate: `${Math.round((result.features?.pose_detection_rate ?? clientMetrics?.detectionRate ?? 0.94) * 100)}%`,
@@ -999,16 +1000,22 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
             <div className="flex items-end justify-between pointer-events-none">
               <div className="bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 shadow-lg flex items-center gap-3">
                 <div className="flex flex-col">
-                  <span className="font-label-sm text-[9px] text-[#00d4ff] font-bold uppercase tracking-wider">Left Knee Flexion</span>
-                  <span className="font-data-mono text-[14px] font-bold text-white">
-                    {kinematics.leftKnee || kinematics.kneeAngle}°
+                  <span className="font-label-sm text-[9px] text-[#00d4ff] font-bold uppercase tracking-wider">Left Knee Angle</span>
+                  <span className="font-data-mono text-[14px] font-bold text-white flex items-baseline gap-1">
+                    <span>{kinematics.leftKnee || kinematics.kneeAngle}°</span>
+                    <span className="text-[10px] text-[#00d4ff] font-normal">
+                      ({kinematics.leftKneeFlexion !== undefined ? kinematics.leftKneeFlexion : Math.max(0, 180 - (kinematics.leftKnee || kinematics.kneeAngle))}° flex)
+                    </span>
                   </span>
                 </div>
                 <div className="w-[1px] h-6 bg-white/20"></div>
                 <div className="flex flex-col">
-                  <span className="font-label-sm text-[9px] text-[#10b981] font-bold uppercase tracking-wider">Right Knee Flexion</span>
-                  <span className="font-data-mono text-[14px] font-bold text-white">
-                    {kinematics.rightKnee || kinematics.kneeAngle}°
+                  <span className="font-label-sm text-[9px] text-[#10b981] font-bold uppercase tracking-wider">Right Knee Angle</span>
+                  <span className="font-data-mono text-[14px] font-bold text-white flex items-baseline gap-1">
+                    <span>{kinematics.rightKnee || kinematics.kneeAngle}°</span>
+                    <span className="text-[10px] text-[#10b981] font-normal">
+                      ({kinematics.rightKneeFlexion !== undefined ? kinematics.rightKneeFlexion : Math.max(0, 180 - (kinematics.rightKnee || kinematics.kneeAngle))}° flex)
+                    </span>
                   </span>
                 </div>
                 <div className="w-[1px] h-6 bg-white/20"></div>
@@ -1020,6 +1027,19 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
                     {kinematics.asymmetry}°
                   </span>
                 </div>
+                {kinematics.varusValgusStatus && kinematics.varusValgusStatus !== 'Normal Alignment' && kinematics.varusValgusStatus !== 'Normal Coronal Alignment' && (
+                  <>
+                    <div className="w-[1px] h-6 bg-white/20"></div>
+                    <div className="flex flex-col">
+                      <span className="font-label-sm text-[9px] text-surface-dim font-bold uppercase tracking-wider">Coronal Axis</span>
+                      <span className={`font-data-mono text-[11px] font-bold ${
+                        kinematics.varusValgusStatus.includes('Risk') ? 'text-amber-400' : 'text-surface-bright'
+                      }`}>
+                        {kinematics.varusValgusStatus}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-surface-dim font-data-mono text-[10px]">
@@ -1336,6 +1356,11 @@ export default function GaitHudView({ activePatient, onAnalysisComplete, onOpenT
               {gaitAnalysis.rightKneeAngle && (
                 <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-data-mono text-[11px] font-semibold">
                   R-Knee: {gaitAnalysis.rightKneeAngle} {gaitAnalysis.rightRom ? `(ROM ${gaitAnalysis.rightRom})` : ''}
+                </span>
+              )}
+              {gaitAnalysis.coronalAlignment && gaitAnalysis.coronalAlignment !== 'Normal Coronal Alignment' && (
+                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-data-mono text-[11px] font-semibold">
+                  {gaitAnalysis.coronalAlignment}
                 </span>
               )}
               {gaitAnalysis.poseDetectionRate && (
