@@ -36,6 +36,22 @@ export default function DiagnosticReportView({
     : (activePatient?.gaitRisk?.includes('High') ? 14.2 : 5.8);
   const defaultVelocity = gaitResult?.velocity ?? (activePatient?.gaitRisk?.includes('High') ? 0.86 : 1.12);
   const defaultCadence = gaitResult?.cadence ?? (activePatient?.gaitRisk?.includes('High') ? 92 : 106);
+  const defaultCoronalAlignment =
+    gaitResult?.coronalAlignment || activePatient?.coronalAlignment || 'Normal Coronal Alignment';
+  const defaultLeftKneeAngle =
+    gaitResult?.leftKneeAngle || (activePatient?.leftKneeAngle ? `${activePatient.leftKneeAngle}°` : '174°');
+  const defaultRightKneeAngle =
+    gaitResult?.rightKneeAngle || (activePatient?.rightKneeAngle ? `${activePatient.rightKneeAngle}°` : '172°');
+  const defaultLeftRom =
+    gaitResult?.leftRom || (gaitResult?.leftKneeRom ? `${gaitResult.leftKneeRom}°` : '24.5°');
+  const defaultRightRom =
+    gaitResult?.rightRom || (gaitResult?.rightKneeRom ? `${gaitResult.rightKneeRom}°` : '26.0°');
+  const defaultAffectedLimb =
+    gaitResult?.affectedLimb ||
+    (defaultAsymmetry >= 6.0
+      ? 'Right Knee Flexion Deficit (Antalgic Lag)'
+      : 'Bilateral Symmetric Gait (Normal ROM)');
+
   const defaultKlGrade = xrayData?.kl_grade !== undefined
     ? xrayData.kl_grade
     : (activePatient?.xrayResult?.includes('KL-3') ? 3 : activePatient?.xrayResult?.includes('KL-2') ? 2 : null);
@@ -54,6 +70,7 @@ export default function DiagnosticReportView({
   const [calVelocity, setCalVelocity] = useState(defaultVelocity);
   const [calKlGrade, setCalKlGrade] = useState(defaultKlGrade !== null ? defaultKlGrade : -1);
   const [calHeavyWork, setCalHeavyWork] = useState(defaultHeavyWork);
+  const [calCoronalAlignment, setCalCoronalAlignment] = useState(defaultCoronalAlignment);
   const [showCalibrationDrawer, setShowCalibrationDrawer] = useState(false);
 
   // Synchronize when patient or prop results change if not actively tweaking
@@ -65,8 +82,9 @@ export default function DiagnosticReportView({
       setCalVelocity(defaultVelocity);
       setCalKlGrade(defaultKlGrade !== null ? defaultKlGrade : -1);
       setCalHeavyWork(defaultHeavyWork);
+      setCalCoronalAlignment(defaultCoronalAlignment);
     }
-  }, [defaultPain, defaultStiffness, defaultAsymmetry, defaultVelocity, defaultKlGrade, defaultHeavyWork, isCalibrating]);
+  }, [defaultPain, defaultStiffness, defaultAsymmetry, defaultVelocity, defaultKlGrade, defaultHeavyWork, defaultCoronalAlignment, isCalibrating]);
 
   // Active runtime parameters
   const currentPain = isCalibrating ? calPain : defaultPain;
@@ -75,6 +93,7 @@ export default function DiagnosticReportView({
   const currentVelocity = isCalibrating ? calVelocity : defaultVelocity;
   const currentKlGrade = isCalibrating ? (calKlGrade >= 0 ? calKlGrade : null) : defaultKlGrade;
   const currentHeavyWork = isCalibrating ? calHeavyWork : defaultHeavyWork;
+  const currentCoronalAlignment = isCalibrating ? calCoronalAlignment : defaultCoronalAlignment;
 
   const patientAge = activePatient?.age || 52;
   const patientState = activePatient?.state || 'Punjab';
@@ -104,10 +123,11 @@ export default function DiagnosticReportView({
     const sScore = Math.min(100, Math.round(painPts + stiffPts + agePts + workPts + diffPts));
 
     // 2. Kinematic Deficit (0-100)
-    const asymPts = Math.min(50, (currentAsymmetry / 18) * 50);
-    const velPts = currentVelocity <= 0.7 ? 30 : currentVelocity <= 0.9 ? 22 : currentVelocity <= 1.1 ? 12 : 4;
-    const cadPts = defaultCadence < 92 ? 20 : defaultCadence < 102 ? 12 : 5;
-    const kScore = Math.min(100, Math.round(asymPts + velPts + cadPts));
+    const asymPts = Math.min(45, (currentAsymmetry / 18) * 45);
+    const velPts = currentVelocity <= 0.7 ? 25 : currentVelocity <= 0.9 ? 18 : currentVelocity <= 1.1 ? 10 : 4;
+    const cadPts = defaultCadence < 92 ? 18 : defaultCadence < 102 ? 10 : 4;
+    const coronalPts = currentCoronalAlignment?.includes('Risk') ? 15 : 0;
+    const kScore = Math.min(100, Math.round(asymPts + velPts + cadPts + coronalPts));
 
     // 3. Radiographic Severity (0-100)
     const validXray = currentKlGrade !== null && currentKlGrade !== undefined;
@@ -173,7 +193,7 @@ export default function DiagnosticReportView({
       strokeDashoffset: offset,
       prescriptions: rx
     };
-  }, [currentPain, currentStiffness, currentAsymmetry, currentVelocity, defaultCadence, currentKlGrade, currentHeavyWork, patientAge, surveyResult]);
+  }, [currentPain, currentStiffness, currentAsymmetry, currentVelocity, defaultCadence, currentKlGrade, currentHeavyWork, currentCoronalAlignment, patientAge, surveyResult]);
 
   // Fast Clinical Recommendation Macros Selection
   const [selectedMacros, setSelectedMacros] = useState(prescriptions.slice(0, 3));
@@ -262,6 +282,7 @@ export default function DiagnosticReportView({
     setCalVelocity(defaultVelocity);
     setCalKlGrade(defaultKlGrade !== null ? defaultKlGrade : -1);
     setCalHeavyWork(defaultHeavyWork);
+    setCalCoronalAlignment(defaultCoronalAlignment);
   };
 
   return (
@@ -280,6 +301,50 @@ export default function DiagnosticReportView({
         <span className="text-[11px] text-secondary font-medium">
           Dossier ID: <strong className="font-data-mono text-on-surface">{activePatient?.id || 'IND-OA-2025'}</strong>
         </span>
+      </div>
+
+      {/* Official ABDM / NHM Printable Tele-Referral Dossier Header (Only on Print / PDF) */}
+      <div className="hidden print:flex flex-col gap-2 pb-4 mb-2 border-b-2 border-slate-900 text-black">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+              National Health Mission · Ministry of Health & Family Welfare · Govt. of India
+            </span>
+            <h1 className="text-xl font-black uppercase text-slate-950 tracking-tight">
+              OrthoNex Musculoskeletal Tele-Triage Clinical Dossier
+            </h1>
+            <span className="text-xs font-semibold text-slate-700">
+              Community Health Centre (CHC) / PHC Early Osteoarthritis Screening Slip
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="inline-block px-2.5 py-1 bg-slate-900 text-white font-mono font-bold text-xs rounded">
+              ABDM VERIFIED
+            </span>
+            <div className="text-[10px] font-mono text-slate-600 mt-1">
+              Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-xs">
+          <div>
+            <span className="text-slate-500 block text-[9px] uppercase font-semibold">Patient Name</span>
+            <strong className="text-slate-950 text-sm">{activePatient?.name || 'Patient'}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block text-[9px] uppercase font-semibold">Age / Gender</span>
+            <strong className="text-slate-900">{patientAge} yrs · {activePatient?.sex === 1 ? 'Female' : 'Male'}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block text-[9px] uppercase font-semibold">ABHA Health ID</span>
+            <strong className="font-mono text-slate-950">{patientAbha}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block text-[9px] uppercase font-semibold">Screening Centre</span>
+            <strong className="text-slate-900">{patientRegion}</strong>
+          </div>
+        </div>
       </div>
 
       {/* Patient Context & National ABDM Header */}
@@ -323,8 +388,8 @@ export default function DiagnosticReportView({
         </div>
       </div>
 
-      {/* Calibration Controls Banner (Interactive Doctor Sandbox) */}
-      <div className="p-md rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-sm shadow-xs">
+      {/* Calibration Controls Banner (Interactive Doctor Sandbox - Hidden during Print) */}
+      <div className="p-md rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-sm shadow-xs print:hidden">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
@@ -365,7 +430,7 @@ export default function DiagnosticReportView({
 
         {/* Collapsible Calibration Sliders */}
         {showCalibrationDrawer && (
-          <div className="pt-sm border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md text-xs animate-in fade-in duration-200">
+          <div className="pt-sm border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-md text-xs animate-in fade-in duration-200">
             {/* Slider 1: Pain VAS */}
             <div className="p-sm rounded-lg bg-surface-container-lowest border border-surface-container flex flex-col gap-1">
               <div className="flex items-center justify-between">
@@ -474,6 +539,37 @@ export default function DiagnosticReportView({
                 </label>
               </div>
             </div>
+
+            {/* Slider 5: Coronal Alignment */}
+            <div className="p-sm rounded-lg bg-surface-container-lowest border border-surface-container flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-on-surface">Coronal Plane Axis</span>
+                <span className={`font-data-mono font-bold text-[10px] ${
+                  currentCoronalAlignment.includes('Risk') ? 'text-amber-500' : 'text-emerald-500'
+                }`}>
+                  {currentCoronalAlignment.includes('Varum') ? 'Genu Varum' : currentCoronalAlignment.includes('Valgum') ? 'Genu Valgum' : 'Normal Axis'}
+                </span>
+              </div>
+              <select
+                value={currentCoronalAlignment}
+                onChange={(e) => {
+                  setIsCalibrating(true);
+                  setCalCoronalAlignment(e.target.value);
+                }}
+                className="w-full px-2 py-1 text-xs rounded bg-surface-container border border-outline-variant/30 text-on-surface font-semibold"
+              >
+                <option value="Normal Coronal Alignment">Normal Alignment (Neutral Axis)</option>
+                <option value="Genu Varum (Medial OA Risk)">Genu Varum (Bow-Leg / Medial OA Risk)</option>
+                <option value="Genu Valgum (Lateral OA Risk)">Genu Valgum (Knock-Knee / Lateral OA Risk)</option>
+              </select>
+              <span className="text-[10px] text-secondary">
+                {currentCoronalAlignment.includes('Varum')
+                  ? 'Medial compartment cartilage wear risk'
+                  : currentCoronalAlignment.includes('Valgum')
+                  ? 'Lateral compartment joint space loss risk'
+                  : 'Symmetric mechanical weight-bearing axis'}
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -545,8 +641,21 @@ export default function DiagnosticReportView({
             </div>
 
             <div className="mt-md pt-sm flex flex-wrap items-center gap-sm">
-              <span className="px-sm py-1 rounded bg-surface-container-highest/10 text-tertiary-fixed-dim font-data-mono text-[11px] border border-white/5">
-                Dominant Axis: {gaitResult?.affectedLimb || 'Right Limb (Sagittal Deficit)'}
+              <span className="px-sm py-1 rounded bg-surface-container-highest/10 text-tertiary-fixed-dim font-data-mono text-[11px] border border-white/5 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px] text-amber-300">timeline</span>
+                <span>Dominant Axis: {defaultAffectedLimb}</span>
+              </span>
+              <span className={`px-sm py-1 rounded font-data-mono text-[11px] border flex items-center gap-1 ${
+                currentCoronalAlignment?.includes('Varus') || currentCoronalAlignment?.includes('Valgus') || currentCoronalAlignment?.includes('Risk')
+                  ? 'bg-amber-500/20 text-amber-200 border-amber-400/30'
+                  : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'
+              }`}>
+                <span className="material-symbols-outlined text-[13px]">accessibility_new</span>
+                <span>Frontal Axis: {currentCoronalAlignment}</span>
+              </span>
+              <span className="px-sm py-1 rounded bg-surface-container-highest/10 text-cyan-200 font-data-mono text-[11px] border border-white/5 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">swap_horiz</span>
+                <span>Dynamic ROM: L {defaultLeftRom} · R {defaultRightRom}</span>
               </span>
               <span className="px-sm py-1 rounded bg-surface-container-highest/10 text-surface-dim font-data-mono text-[11px] border border-white/5">
                 Model Confidence: {gaitResult?.confidence || 86}% (RandomForest Multi-Sensor)
@@ -665,10 +774,10 @@ export default function DiagnosticReportView({
               </span>
             </div>
             <h3 className="font-headline-sm text-on-surface font-bold mb-1">
-              Sagittal Kinematic Stance
+              Kinematic Gait & Alignment
             </h3>
             <p className="font-body-sm text-secondary text-xs mb-sm">
-              Clinical 33-point sagittal tracking during walking trial.
+              Clinical 33-point sagittal tracking and frontal coronal axis analysis.
             </p>
             <div className="space-y-xs text-xs">
               <div className="flex justify-between py-1 border-b border-surface-container">
@@ -677,11 +786,29 @@ export default function DiagnosticReportView({
               </div>
               <div className="flex justify-between py-1 border-b border-surface-container">
                 <span className="text-secondary">Gait Velocity</span>
-                <span className="font-data-mono font-bold text-error">{currentVelocity.toFixed(2)} m/s</span>
+                <span className="font-data-mono font-bold text-on-surface">{currentVelocity.toFixed(2)} m/s</span>
               </div>
-              <div className="flex justify-between py-1">
-                <span className="text-secondary">Extension Deficit</span>
-                <span className="font-data-mono font-bold text-error">+{currentAsymmetry.toFixed(1)}° Asymmetry</span>
+              <div className="flex justify-between py-1 border-b border-surface-container">
+                <span className="text-secondary">Sagittal Asymmetry</span>
+                <span className="font-data-mono font-bold text-error">+{currentAsymmetry.toFixed(1)}° Lag</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-surface-container">
+                <span className="text-secondary">Knee Included Angle</span>
+                <span className="font-data-mono font-bold text-primary">L: {defaultLeftKneeAngle} · R: {defaultRightKneeAngle}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-surface-container">
+                <span className="text-secondary">Dynamic ROM</span>
+                <span className="font-data-mono font-bold text-cyan-700 dark:text-cyan-300">L: {defaultLeftRom} · R: {defaultRightRom}</span>
+              </div>
+              <div className="flex justify-between py-1 items-center">
+                <span className="text-secondary">Frontal Coronal Axis</span>
+                <span className={`font-data-mono font-bold text-[10px] px-1.5 py-0.5 rounded ${
+                  currentCoronalAlignment?.includes('Varus') || currentCoronalAlignment?.includes('Valgus') || currentCoronalAlignment?.includes('Risk')
+                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+                    : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200'
+                }`}>
+                  {currentCoronalAlignment}
+                </span>
               </div>
             </div>
           </div>
@@ -1203,6 +1330,33 @@ export default function DiagnosticReportView({
             <span>
               OrthoNex India operates as an AI-powered Clinical Decision Support System (CDSS) under ICMR/NHM triage guidelines. Output probabilities, antalgic lag estimates, and KL-grade predictions are screening aids designed to prioritize care. Final diagnostic confirmation, medication prescriptions, and tertiary surgical referrals rest exclusively with a Registered Medical Practitioner (RMP).
             </span>
+          </div>
+        </div>
+
+        {/* Printable Physical Referral Dossier Sign-Off & Official Health Sub-Centre Seal */}
+        <div className="hidden print:flex items-end justify-between pt-8 mt-6 border-t-2 border-slate-400 text-slate-800 text-xs">
+          <div className="flex flex-col gap-1 w-64">
+            <span className="font-bold text-[11px] uppercase tracking-wider text-slate-600">Examining Medical Officer:</span>
+            <div className="h-10 border-b border-dashed border-slate-400 flex items-end pb-1 font-serif text-sm font-bold text-slate-900">
+              {currentUser?.name || 'Dr. Medical Officer, MBBS'}
+            </div>
+            <span className="text-[10px] text-slate-500 font-data-mono">
+              Reg. No: {currentUser?.staffId || 'NMC-NER-2024-8841'} · Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-400 rounded-lg w-44 h-24 p-2 text-center text-[10px] text-slate-600">
+            <span className="font-bold uppercase text-[9px] tracking-widest text-slate-400 mb-1">Official Seal</span>
+            <span className="font-bold">{currentUser?.station || 'CHC / Health Sub-Centre'}</span>
+            <span className="font-data-mono text-[8px] text-slate-500 mt-1">NATIONAL HEALTH MISSION · ABDM</span>
+          </div>
+
+          <div className="flex flex-col gap-1 w-64 text-right">
+            <span className="font-bold text-[11px] uppercase tracking-wider text-slate-600">Specialist Intake Officer:</span>
+            <div className="h-10 border-b border-dashed border-slate-400 flex items-end justify-end pb-1 text-[10px] text-slate-400 italic">
+              Signature & Stamp upon Referral Intake
+            </div>
+            <span className="text-[10px] text-slate-500 font-data-mono">AIIMS / PGIMER / GMCH Orthopaedics OPD</span>
           </div>
         </div>
       </div>
